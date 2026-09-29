@@ -15,7 +15,7 @@ import threading
 import uuid
 
 import qrcode
-from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
 from core import camera, cloud, printer
 from core import config as cfg
@@ -147,14 +147,18 @@ def api_upload_photo():
 
 @app.post("/api/capture")
 def api_capture():
-    """Spiegelreflex-/Systemkamera über digiCamControl auslösen."""
+    """Spiegelreflex-/Systemkamera über digiCamControl oder gphoto2 auslösen."""
     conf = cfg.load()
     try:
         src = camera.capture(conf["camera"])
     except camera.CameraError as exc:
         return error(str(exc), 500)
     name = new_photo_name()
-    shutil.copy2(src, os.path.join(photo_dir(), name))
+    if conf["camera"]["mode"] == "gphoto2":
+        shutil.move(src, os.path.join(photo_dir(), name))
+        shutil.rmtree(os.path.dirname(src), ignore_errors=True)
+    else:
+        shutil.copy2(src, os.path.join(photo_dir(), name))
     after_capture(name)
     return jsonify({"ok": True, "name": name, "url": url_for("photo_file", name=name)})
 
@@ -166,6 +170,18 @@ def api_liveview_start():
     except camera.CameraError as exc:
         return error(str(exc), 500)
     return jsonify({"ok": True})
+
+
+@app.get("/api/liveview.mjpg")
+def api_liveview_gphoto():
+    """Live-Ansicht der gphoto2-Kamera als MJPEG-Stream."""
+    def stream():
+        try:
+            for frame in camera.gphoto.preview_frames():
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+        except camera.CameraError as exc:
+            print(f"[Kamera] {exc}")
+    return Response(stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
 @app.get("/api/photos")
@@ -228,17 +244,18 @@ def api_save_settings():
 @admin_required
 def api_printers():
     names, default = printer.list_printers()
-    return jsonify({"printers": names, "default": default, "windows": printer.IS_WINDOWS})
+    return jsonify({"printers": names, "default": default, "windows": printer.IS_WINDOWS,
+                    "mac": printer.IS_MAC})
 
 
 @app.post("/api/printers/connect")
 @admin_required
 def api_printer_connect():
     try:
-        name = printer.connect_shared_printer(request.json.get("path", ""))
+        name, message = printer.connect_shared_printer(request.json.get("path", ""))
     except printer.PrinterError as exc:
         return error(str(exc))
-    return jsonify({"ok": True, "name": name})
+    return jsonify({"ok": True, "name": name, "message": message})
 
 
 @app.post("/api/printers/test")

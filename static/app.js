@@ -66,6 +66,26 @@ function startDslrPreview() {
   refresh();
 }
 
+function startGphotoPreview() {
+  // MJPEG-Stream vom Server; wird beim Auslösen beendet und danach neu gestartet
+  const img = $("dslrView");
+  img.hidden = false;
+  img.classList.toggle("mirror", state.camera.mirror_preview);
+  img.onerror = () => {
+    cameraMessage("Keine Live-Ansicht – ist die Kamera angeschlossen und eingeschaltet?");
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(startGphotoPreview, 3000);
+  };
+  img.onload = () => cameraMessage("");
+  img.src = `/api/liveview.mjpg?t=${Date.now()}`;
+}
+
+function stopGphotoPreview() {
+  clearTimeout(liveTimer);
+  $("dslrView").onerror = null;
+  $("dslrView").src = "";
+}
+
 function cameraMessage(text) {
   const m = $("cameraMessage");
   m.textContent = text;
@@ -104,15 +124,20 @@ async function takePhoto() {
     flash.classList.add("on");
     setTimeout(() => flash.classList.remove("on"), 400);
 
-    const photo = state.camera.mode === "dslr"
-      ? await api("/api/capture", { method: "POST" })
-      : await grabWebcamFrame();
+    let photo;
+    if (state.camera.mode === "webcam") {
+      photo = await grabWebcamFrame();
+    } else {
+      if (state.camera.mode === "gphoto2") stopGphotoPreview();
+      photo = await api("/api/capture", { method: "POST" });
+    }
     openReview(photo);
   } catch (err) {
     toast(err.message, 6000);
   } finally {
     cd.hidden = true;
     busy = false;
+    if (state.camera.mode === "gphoto2") startGphotoPreview();
   }
 }
 
@@ -182,6 +207,7 @@ async function init() {
   $("shareBtn").hidden = !state.share_enabled;
 
   if (state.camera.mode === "dslr") startDslrPreview();
+  else if (state.camera.mode === "gphoto2") startGphotoPreview();
   else startWebcam();
 
   $("shutterBtn").onclick = takePhoto;

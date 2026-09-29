@@ -57,9 +57,10 @@ function setOptions(select, options, selected) {
 
 // ------------------------------------------------------------------ Kamera
 function updateCameraMode() {
-  const dslr = $("cameraMode").value === "dslr";
-  $("webcamOptions").hidden = dslr;
-  $("dslrOptions").hidden = !dslr;
+  const mode = $("cameraMode").value;
+  $("webcamOptions").hidden = mode !== "webcam";
+  $("dslrOptions").hidden = mode !== "dslr";
+  $("gphotoOptions").hidden = mode !== "gphoto2";
 }
 
 async function loadWebcams() {
@@ -81,7 +82,7 @@ async function loadPrinters() {
   const r = await api("/api/printers");
   setOptions(
     $("printerSelect"),
-    [["", `Windows-Standarddrucker${r.default ? ` (${r.default})` : ""}`], ...r.printers.map((p) => [p, p])],
+    [["", `Standarddrucker${r.default ? ` (${r.default})` : ""}`], ...r.printers.map((p) => [p, p])],
     $("printerSelect").value || config.printer.name,
   );
 }
@@ -203,8 +204,8 @@ async function init() {
     try {
       const res = await api("/api/printers/connect", { path: $("sharePath").value });
       await loadPrinters();
-      $("printerSelect").value = res.name;
-      status($("printerStatus"), `✔ ${res.name} verbunden – bitte speichern`);
+      if (res.name) $("printerSelect").value = res.name;
+      status($("printerStatus"), `✔ ${res.message}`);
     } catch (e) {
       status($("printerStatus"), `✖ ${e.message}`, false);
     }

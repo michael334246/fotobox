@@ -25,7 +25,8 @@
     <label><span>Kameratyp</span>
       <select data-key="camera.mode" id="cameraMode">
         <option value="webcam">Webcam / USB-Kamera (im Browser)</option>
-        <option value="dslr">Spiegelreflex / Systemkamera (digiCamControl)</option>
+        <option value="dslr">Spiegelreflex / Systemkamera – Windows (digiCamControl)</option>
+        <option value="gphoto2">Spiegelreflex / Systemkamera – Mac (gphoto2)</option>
       </select>
     </label>
     <div id="webcamOptions">
@@ -38,6 +39,10 @@
       <label><span>digiCamControl-Webserver</span><input type="text" data-key="camera.digicam_url"></label>
       <label><span>Bildordner von digiCamControl (Session-Ordner)</span><input type="text" data-key="camera.digicam_folder"></label>
       <p class="note">In digiCamControl unter <em>Settings → Webserver</em> den Webserver aktivieren.</p>
+    </div>
+    <div id="gphotoOptions">
+      <p class="note">Kamera per USB anschliessen und einschalten. gphoto2 muss installiert sein
+        (Terminal: <code>brew install gphoto2</code>). An der Kamera JPEG oder RAW+JPEG einstellen.</p>
     </div>
     <label class="check"><input type="checkbox" data-key="camera.mirror_preview"> Live-Ansicht spiegeln (wie ein Spiegel)</label>
   </fieldset>

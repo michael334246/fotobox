@@ -1,15 +1,17 @@
 """Drucken über die Windows-Druckerverwaltung (inkl. freigegebener Netzwerkdrucker).
 
-Unter Windows wird pywin32 verwendet. Auf anderen Systemen (nur zum Testen)
-wird auf CUPS (`lp`) ausgewichen.
+Unter Windows wird pywin32 verwendet. Auf dem Mac (und Linux) wird das
+Drucksystem CUPS (`lp`, `lpstat`) verwendet.
 """
 import os
 import subprocess
 import sys
+from urllib.parse import quote
 
 from PIL import Image, ImageOps
 
 IS_WINDOWS = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
 
 
 class PrinterError(Exception):
@@ -42,20 +44,49 @@ def list_printers():
         return [], ""
 
 
-def connect_shared_printer(path):
-    """Verbindet eine Windows-Druckerfreigabe, z.B. \\\\EMPFANG-PC\\Fotodrucker."""
-    path = (path or "").strip()
-    if not path.startswith("\\\\"):
-        raise PrinterError("Bitte den Freigabepfad im Format \\\\COMPUTER\\Drucker angeben.")
-    if not IS_WINDOWS:
-        raise PrinterError("Druckerfreigaben können nur unter Windows verbunden werden.")
-    import win32print
+def smb_url(path):
+    """\\\\PC\\Drucker  ->  smb://PC/Drucker"""
+    path = path.strip()
+    if path.lower().startswith("smb://"):
+        return path
+    return "smb://" + quote(path.lstrip("\\").replace("\\", "/"))
 
-    try:
-        win32print.AddPrinterConnection(path)
-    except Exception as exc:  # pywintypes.error
-        raise PrinterError(f"Verbindung zu {path} fehlgeschlagen: {exc}") from exc
-    return path
+
+def connect_shared_printer(path):
+    """Verbindet eine Windows-Druckerfreigabe, z.B. \\\\EMPFANG-PC\\Fotodrucker.
+
+    Gibt (Druckername oder "", Hinweistext) zurück.
+    """
+    path = (path or "").strip()
+    if not (path.startswith("\\\\") or path.lower().startswith("smb://")):
+        raise PrinterError("Bitte den Freigabepfad im Format \\\\COMPUTER\\Drucker angeben.")
+
+    if IS_WINDOWS:
+        import win32print
+
+        if path.lower().startswith("smb://"):
+            path = "\\\\" + path[6:].replace("/", "\\")
+        try:
+            win32print.AddPrinterConnection(path)
+        except Exception as exc:  # pywintypes.error
+            raise PrinterError(f"Verbindung zu {path} fehlgeschlagen: {exc}") from exc
+        return path, f"{path} verbunden – bitte speichern"
+
+    if IS_MAC:
+        # macOS braucht für Freigaben den passenden Druckertreiber. Den wählt man am
+        # zuverlässigsten im Systemdialog «Drucker hinzufügen» aus.
+        url = smb_url(path)
+        try:
+            subprocess.run(["pbcopy"], input=url, text=True, timeout=5)
+            if subprocess.run(["open", "-a", "AddPrinter"], capture_output=True).returncode != 0:
+                subprocess.run(["open", "x-apple.systempreferences:com.apple.Print-Scanner-Settings.extension"])
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise PrinterError(f"Dialog «Drucker hinzufügen» konnte nicht geöffnet werden: {exc}") from exc
+        return "", (f"Im geöffneten Dialog Reiter «Windows» wählen oder unter «IP» die Adresse {url} "
+                    "einfügen (bereits in der Zwischenablage), Treiber wählen, hinzufügen – "
+                    "danach hier «Aktualisieren».")
+
+    raise PrinterError("Druckerfreigaben bitte über die Druckereinstellungen des Systems verbinden.")
 
 
 def print_image(path, printer_name="", copies=1, fit_mode="fill"):

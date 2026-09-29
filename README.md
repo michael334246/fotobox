@@ -1,11 +1,11 @@
 # Fotobox
 
-Einfache Fotobox-App für Windows: Kamera auslösen, Foto über einen (auch freigegebenen) Windows-Drucker drucken, automatisch in die Cloud hochladen und den Gästen per QR-Code aufs Handy geben.
+Einfache Fotobox-App für **Windows und Mac**: Kamera auslösen, Foto über einen (auch freigegebenen) Drucker drucken, automatisch in die Cloud hochladen und den Gästen per QR-Code aufs Handy geben.
 
 | Funktion | Umsetzung |
 |---|---|
-| **Kamera** | Webcam/USB-Kamera direkt im Browser *oder* Spiegelreflex-/Systemkamera über [digiCamControl](https://digicamcontrol.com) (Canon, Nikon, Sony) |
-| **Drucken** | Windows-Druckerverwaltung: lokale Drucker und **Windows-Druckerfreigaben** (`\\PC\Drucker`), direkt in den Einstellungen verbindbar |
+| **Kamera** | Webcam/USB-Kamera direkt im Browser *oder* Spiegelreflex-/Systemkamera über [digiCamControl](https://digicamcontrol.com) (Windows) bzw. [gphoto2](http://www.gphoto.org) (Mac) |
+| **Drucken** | Windows-Druckerverwaltung bzw. macOS-Drucksystem: lokale Drucker und **Windows-Druckerfreigaben** (`\\PC\Drucker`), direkt aus den Einstellungen verbindbar |
 | **Cloudspeicher** | beliebig viele Speicher hinzufügen: Sync-Ordner (OneDrive, Google Drive, Dropbox-Client, SharePoint), Nextcloud/ownCloud, Dropbox, WebDAV (NAS) |
 | **Teilen** | Nach der Aufnahme «Teilen» → Foto wird hochgeladen, ein öffentlicher Link erstellt und als QR-Code angezeigt |
 
@@ -17,6 +17,29 @@ Einfache Fotobox-App für Windows: Kamera auslösen, Foto über einen (auch frei
 4. Beim ersten Start den Kamerazugriff im Browser erlauben.
 
 Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://localhost:5000> öffnen.
+
+## Installation (Mac)
+
+1. [Python 3.10+](https://www.python.org/downloads/macos/) installieren (oder mit Homebrew: `brew install python`).
+2. Repository herunterladen (*Code → Download ZIP*) und entpacken, z.B. nach `Programme/Fotobox` oder auf den Schreibtisch.
+3. `start_fotobox.command` doppelklicken.
+   - Beim allerersten Mal meldet macOS evtl. «nicht verifizierter Entwickler»: Rechtsklick auf die Datei → *Öffnen* → *Öffnen*.
+   - Falls die Datei nicht startet: im Terminal einmalig `chmod +x start_fotobox.command` ausführen.
+4. Beim ersten Start werden die Abhängigkeiten installiert. Danach öffnet sich die Fotobox im Vollbild in **Google Chrome** (Kiosk-Modus, beenden mit `Cmd+Q`). Ohne Chrome öffnet sich Safari – Vollbild dann mit `Ctrl+Cmd+F`.
+5. Kamerazugriff erlauben (im Browser und ggf. unter *Systemeinstellungen → Datenschutz & Sicherheit → Kamera*).
+6. Beenden: das Terminalfenster schliessen.
+
+### Unterschiede auf dem Mac
+
+| Thema | Mac |
+|---|---|
+| **Webcam** | FaceTime-Kamera oder USB-Webcam, genau wie unter Windows. |
+| **Spiegelreflex / Systemkamera** | Über **gphoto2** statt digiCamControl: im Terminal `brew install gphoto2` ([Homebrew](https://brew.sh) nötig), Kamera per USB anschliessen, in den Einstellungen Kameratyp *«Spiegelreflex / Systemkamera – Mac (gphoto2)»* wählen. Live-Ansicht und Auslösen laufen über die App. An der Kamera JPEG (oder RAW+JPEG) einstellen. Unterstützte Kameras: [gphoto.org/proj/libgphoto2/support.php](http://www.gphoto.org/proj/libgphoto2/support.php). Die App beendet automatisch die macOS-Dienste, die angeschlossene Kameras sonst blockieren (z.B. beim Öffnen von «Fotos»). |
+| **Drucker** | Alle Drucker aus *Systemeinstellungen → Drucker & Scanner* erscheinen in der Liste. Gedruckt wird über das macOS-Drucksystem (CUPS). |
+| **Windows-Druckerfreigabe** | In den Einstellungen `\\EMPFANG-PC\Fotodrucker` (oder `smb://EMPFANG-PC/Fotodrucker`) eintragen und «Verbinden» klicken. Es öffnet sich der macOS-Dialog *Drucker hinzufügen*, die Adresse liegt schon in der Zwischenablage: Reiter *Windows* wählen (oder unter *IP* die Adresse einfügen), **Treiber des Druckers wählen**, hinzufügen. Danach in der Fotobox «Aktualisieren» und den Drucker auswählen. Der Treiber wird im Systemdialog gewählt, weil macOS ihn für Freigaben nicht automatisch findet. |
+| **Papierformat** | Standard-Papierformat (z.B. 10×15 cm) in *Systemeinstellungen → Drucker & Scanner* bzw. im Druckdialog einer beliebigen App als Voreinstellung setzen. |
+| **Cloudspeicher** | Alle Speicherarten funktionieren gleich. Als Sync-Ordner eignen sich z.B. `~/Library/Mobile Documents/com~apple~CloudDocs/Fotobox` (iCloud Drive), der OneDrive- oder Google-Drive-Ordner. |
+| **Ruhezustand** | Für den Einsatz unter *Systemeinstellungen → Sperrbildschirm* den Bildschirmschoner/Ruhezustand ausschalten, damit die Fotobox nicht einschläft. |
 
 ## Bedienung
 
@@ -32,7 +55,8 @@ Alle Einstellungen werden in `config.json` gespeichert. Mit einer **Admin-PIN** 
 
 ### Kamera
 - **Webcam:** Kamera auswählen («Kameras suchen»). Die Live-Ansicht kann gespiegelt werden; das gespeicherte Foto ist immer seitenrichtig.
-- **Spiegelreflex (digiCamControl):** digiCamControl installieren, Kamera per USB anschliessen, unter *Settings → Webserver* den Webserver aktivieren. In der Fotobox die Webserver-Adresse (Standard `http://localhost:5513`) und den **Session-Ordner** von digiCamControl eintragen, in dem die Bilder landen.
+- **Spiegelreflex – Mac (gphoto2):** siehe [Unterschiede auf dem Mac](#unterschiede-auf-dem-mac).
+- **Spiegelreflex – Windows (digiCamControl):** digiCamControl installieren, Kamera per USB anschliessen, unter *Settings → Webserver* den Webserver aktivieren. In der Fotobox die Webserver-Adresse (Standard `http://localhost:5513`) und den **Session-Ordner** von digiCamControl eintragen, in dem die Bilder landen.
 
 ### Drucker
 - Die Liste zeigt alle lokal installierten Drucker und verbundenen Druckerfreigaben.
@@ -63,8 +87,8 @@ Unter **«Fotos teilen (QR-Code) über»** den Speicher wählen, der die Links f
 
 ```
 app.py              Webserver (Flask) und API
-core/camera.py      Ansteuerung digiCamControl
-core/printer.py     Drucken über Windows (pywin32), Druckerfreigaben
+core/camera.py      Ansteuerung Spiegelreflex (digiCamControl / gphoto2)
+core/printer.py     Drucken über Windows (pywin32) bzw. macOS (CUPS), Druckerfreigaben
 core/cloud.py       Cloudspeicher, Upload und Freigabelinks
 core/config.py      Einstellungen (config.json)
 templates/, static/ Oberfläche (Fotobox + Einstellungen)
