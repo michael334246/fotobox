@@ -2,6 +2,8 @@
 const $ = (id) => document.getElementById(id);
 let config = null;
 let types = {};
+let themes = [];       // [[id, Bezeichnung], …]
+let layoutNames = [];
 
 async function api(url, body) {
   const options = body === undefined ? {} : {
@@ -53,6 +55,35 @@ function setOptions(select, options, selected) {
     select.appendChild(o);
   }
   select.value = selected ?? "";
+}
+
+// ------------------------------------------------------------------ Design & Layouts
+function renderDesign() {
+  setOptions($("themeSelect"), themes, config.design.theme);
+  setOptions($("defaultLayout"), layoutNames, config.design.default_layout);
+  const box = $("layoutChecks");
+  box.innerHTML = "";
+  for (const [id, label] of layoutNames) {
+    const l = document.createElement("label");
+    l.className = "check";
+    l.innerHTML = `<input type="checkbox" value="${id}"> <span></span>`;
+    l.querySelector("span").textContent = label;
+    l.querySelector("input").checked = config.design.layouts.includes(id);
+    box.appendChild(l);
+  }
+  renderLayoutPreviews();
+}
+
+function renderLayoutPreviews() {
+  const box = $("layoutPreviews");
+  box.innerHTML = "";
+  for (const [id, label] of layoutNames) {
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<img alt=""><figcaption></figcaption>`;
+    fig.querySelector("img").src = `/api/layouts/${id}/preview.jpg?theme=${$("themeSelect").value}&t=${Date.now()}`;
+    fig.querySelector("figcaption").textContent = label;
+    box.appendChild(fig);
+  }
 }
 
 // ------------------------------------------------------------------ Kamera
@@ -173,9 +204,16 @@ function addStorage() {
 // ------------------------------------------------------------------ Speichern
 async function save() {
   document.querySelectorAll("[data-key]").forEach((el) => setPath(config, el.dataset.key, readInput(el)));
+  config.design.layouts = [...document.querySelectorAll("#layoutChecks input:checked")].map((i) => i.value);
+  if (!config.design.layouts.length) config.design.layouts = ["classic"];
+  if (!config.design.layouts.includes(config.design.default_layout)) {
+    config.design.default_layout = config.design.layouts[0];
+  }
   try {
     const r = await api("/api/settings", config);
     config = r.config;
+    $("defaultLayout").value = config.design.default_layout;
+    renderLayoutPreviews();
     status($("saveStatus"), "✔ Gespeichert");
   } catch (e) {
     status($("saveStatus"), `✖ ${e.message}`, false);
@@ -186,12 +224,16 @@ async function init() {
   const r = await api("/api/settings");
   config = r.config;
   types = r.storage_types;
+  themes = r.themes;
+  layoutNames = r.layouts;
 
   setOptions($("newStorageType"), Object.entries(types).map(([k, t]) => [k, t.label]));
   await Promise.all([loadPrinters().catch(() => {}), loadWebcams().catch(() => {})]);
   document.querySelectorAll("[data-key]").forEach((el) => writeInput(el, getPath(config, el.dataset.key)));
+  renderDesign();
   renderStorages();
   updateCameraMode();
+  $("themeSelect").onchange = renderLayoutPreviews;
 
   $("cameraMode").onchange = updateCameraMode;
   $("webcamRefresh").onclick = loadWebcams;

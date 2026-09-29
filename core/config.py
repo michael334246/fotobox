@@ -13,6 +13,13 @@ DEFAULTS = {
     "review_timeout": 60,
     "admin_pin": "",
     "photo_dir": os.path.join(BASE_DIR, "photos"),
+    "design": {
+        "theme": "party",          # siehe core/layouts.py THEMES
+        "frame_text": "",          # leer = Name des Anlasses
+        "show_date": True,
+        "layouts": ["classic", "polaroid", "strip", "grid"],
+        "default_layout": "polaroid",
+    },
     "camera": {
         # "webcam": Kamera wird im Browser angesteuert (USB-Webcam, integrierte Kamera)
         # "dslr":   Spiegelreflex/Systemkamera über digiCamControl (Windows)

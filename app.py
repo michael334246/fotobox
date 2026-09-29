@@ -17,7 +17,7 @@ import uuid
 import qrcode
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
-from core import camera, cloud, printer
+from core import camera, cloud, layouts, printer
 from core import config as cfg
 
 app = Flask(__name__)
@@ -42,6 +42,27 @@ def photo_path(name):
     if not os.path.isfile(path):
         abort(404)
     return path
+
+
+def shots_dir():
+    path = os.path.join(photo_dir(), "einzelbilder")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def shot_path(name):
+    if not NAME_RE.match(name or ""):
+        abort(400)
+    path = os.path.join(shots_dir(), name)
+    if not os.path.isfile(path):
+        abort(400)
+    return path
+
+
+def design_of(conf):
+    design = dict(conf["design"])
+    design["frame_text"] = design.get("frame_text") or conf["event_name"]
+    return design
 
 
 def new_photo_name():
@@ -130,19 +151,23 @@ def api_state():
         "print_enabled": conf["printer"]["enabled"],
         "max_copies": conf["printer"]["max_copies"],
         "share_enabled": bool(find_storage(conf, conf["cloud"]["share_storage_id"])),
+        "layouts": [
+            {"id": k, "label": v["label"], "shots": v["shots"]}
+            for k, v in layouts.LAYOUTS.items() if k in conf["design"]["layouts"]
+        ] or [{"id": "classic", "label": "Klassisch", "shots": 1}],
+        "default_layout": conf["design"]["default_layout"],
     })
 
 
-@app.post("/api/photo")
-def api_upload_photo():
-    """Webcam-Aufnahme aus dem Browser entgegennehmen."""
+@app.post("/api/shot")
+def api_upload_shot():
+    """Einzelaufnahme der Webcam aus dem Browser entgegennehmen."""
     file = request.files.get("photo")
     if not file:
         return error("Kein Bild erhalten")
     name = new_photo_name()
-    file.save(os.path.join(photo_dir(), name))
-    after_capture(name)
-    return jsonify({"ok": True, "name": name, "url": url_for("photo_file", name=name)})
+    file.save(os.path.join(shots_dir(), name))
+    return jsonify({"ok": True, "shot": name})
 
 
 @app.post("/api/capture")
@@ -155,12 +180,52 @@ def api_capture():
         return error(str(exc), 500)
     name = new_photo_name()
     if conf["camera"]["mode"] == "gphoto2":
-        shutil.move(src, os.path.join(photo_dir(), name))
+        shutil.move(src, os.path.join(shots_dir(), name))
         shutil.rmtree(os.path.dirname(src), ignore_errors=True)
     else:
-        shutil.copy2(src, os.path.join(photo_dir(), name))
+        shutil.copy2(src, os.path.join(shots_dir(), name))
+    return jsonify({"ok": True, "shot": name})
+
+
+@app.post("/api/compose")
+def api_compose():
+    """Einzelaufnahmen gemäss gewähltem Layout zum fertigen Foto zusammensetzen."""
+    conf = cfg.load()
+    data = request.get_json(force=True)
+    layout_id = data.get("layout")
+    if layout_id not in layouts.LAYOUTS:
+        return error("Unbekanntes Layout")
+    paths = [shot_path(n) for n in data.get("shots", [])]
+    if len(paths) != layouts.LAYOUTS[layout_id]["shots"]:
+        return error("Falsche Anzahl Aufnahmen für dieses Layout")
+
+    name = new_photo_name()
+    target = os.path.join(photo_dir(), name)
+    try:
+        image = layouts.compose(layout_id, paths, design_of(conf))
+    except Exception as exc:
+        return error(f"Layout konnte nicht erstellt werden: {exc}", 500)
+    if image is None:
+        shutil.copy2(paths[0], target)
+    else:
+        image.save(target, quality=92, dpi=(300, 300))
     after_capture(name)
     return jsonify({"ok": True, "name": name, "url": url_for("photo_file", name=name)})
+
+
+@app.get("/api/layouts/<layout_id>/preview.jpg")
+def api_layout_preview(layout_id):
+    if layout_id not in layouts.LAYOUTS:
+        abort(404)
+    conf = cfg.load()
+    design = design_of(conf)
+    if request.args.get("theme") in layouts.THEMES:  # Vorschau in den Einstellungen
+        design["theme"] = request.args["theme"]
+    buf = io.BytesIO()
+    layouts.preview(layout_id, design).save(buf, format="JPEG", quality=85)
+    resp = Response(buf.getvalue(), mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.post("/api/liveview/start")
@@ -223,7 +288,12 @@ def api_share(name):
 @app.get("/api/settings")
 @admin_required
 def api_get_settings():
-    return jsonify({"config": cfg.load(), "storage_types": cloud.TYPES})
+    return jsonify({
+        "config": cfg.load(),
+        "storage_types": cloud.TYPES,
+        "themes": [[k, v["label"]] for k, v in layouts.THEMES.items()],
+        "layouts": [[k, v["label"]] for k, v in layouts.LAYOUTS.items()],
+    })
 
 
 @app.post("/api/settings")

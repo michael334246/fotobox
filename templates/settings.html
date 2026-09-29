@@ -21,6 +21,20 @@
   </fieldset>
 
   <fieldset>
+    <legend>Design &amp; Layouts</legend>
+    <div class="row">
+      <label><span>Design der Fotos</span><select data-key="design.theme" id="themeSelect"></select></label>
+      <label><span>Text auf dem Foto (leer = Name des Anlasses)</span><input type="text" data-key="design.frame_text"></label>
+    </div>
+    <label class="check"><input type="checkbox" data-key="design.show_date"> Datum aufs Foto drucken</label>
+    <label><span>Layouts, die Gäste auswählen können</span></label>
+    <div class="checks" id="layoutChecks"></div>
+    <label><span>Vorausgewähltes Layout</span><select data-key="design.default_layout" id="defaultLayout"></select></label>
+    <div class="layout-previews" id="layoutPreviews"></div>
+    <p class="note">Die Vorschau zeigt Beispielbilder. Text und Datum erscheinen nach dem Speichern.</p>
+  </fieldset>
+
+  <fieldset>
     <legend>Kamera</legend>
     <label><span>Kameratyp</span>
       <select data-key="camera.mode" id="cameraMode">

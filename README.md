@@ -7,6 +7,7 @@ Einfache Fotobox-App für **Windows und Mac**: Kamera auslösen, Foto über eine
 | **Kamera** | Webcam/USB-Kamera direkt im Browser *oder* Spiegelreflex-/Systemkamera über [digiCamControl](https://digicamcontrol.com) (Windows) bzw. [gphoto2](http://www.gphoto.org) (Mac) |
 | **Drucken** | Windows-Druckerverwaltung bzw. macOS-Drucksystem: lokale Drucker und **Windows-Druckerfreigaben** (`\\PC\Drucker`), direkt aus den Einstellungen verbindbar |
 | **Cloudspeicher** | beliebig viele Speicher hinzufügen: Sync-Ordner (OneDrive, Google Drive, Dropbox-Client, SharePoint), Nextcloud/ownCloud, Dropbox, WebDAV (NAS) |
+| **Layouts** | Gäste wählen vor dem Foto: *Klassisch*, *Mit Rahmen*, *Fotostreifen* (3 Fotos) oder *4er-Collage* – mit Anlassname, Datum und wählbarem Design |
 | **Teilen** | Nach der Aufnahme «Teilen» → Foto wird hochgeladen, ein öffentlicher Link erstellt und als QR-Code angezeigt |
 
 ## Installation (Windows)
@@ -46,8 +47,10 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127
 
 ## Bedienung
 
-- **Foto machen:** grosser Knopf, Touchscreen, Leertaste oder Enter (USB-Buzzer, die eine Taste simulieren, funktionieren ebenfalls).
-- Nach dem Countdown erscheint das Foto mit **Drucken** (Anzahl Kopien wählbar), **Teilen** (QR-Code) und **Neues Foto**.
+- **Layout wählen:** unten die gewünschte Karte antippen (oder Pfeiltasten ← →).
+- **Foto machen:** grosser Knopf «Los geht's!», Touchscreen, Leertaste oder Enter (USB-Buzzer, die eine Taste simulieren, funktionieren ebenfalls).
+- Countdown mit lustigen Posen-Sprüchen; bei Fotostreifen und Collage werden automatisch mehrere Fotos nacheinander gemacht («Foto 2 von 4»).
+- Danach erscheint das fertige Bild mit Konfetti und den Knöpfen **Drucken** (Anzahl Kopien wählbar), **Aufs Handy** (QR-Code) und **Nochmal!**.
 - Nach der eingestellten Zeit ohne Bedienung springt die Fotobox automatisch zur Live-Ansicht zurück.
 - 🖼️ oben rechts öffnet die Galerie (auch ältere Fotos drucken/teilen), ⚙️ die Einstellungen.
 - Alle Fotos liegen zusätzlich lokal im Ordner `photos/`.
@@ -55,6 +58,20 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127
 ## Einstellungen (`/settings`)
 
 Alle Einstellungen werden in `config.json` gespeichert. Mit einer **Admin-PIN** lässt sich die Einstellungsseite vor Gästen schützen.
+
+### Design & Layouts
+
+| Layout | Aufnahmen | Ergebnis (10×15 cm) |
+|---|---|---|
+| **Klassisch** | 1 | Originalfoto ohne Rahmen |
+| **Mit Rahmen** | 1 | Foto mit Rand, darunter Anlassname und Datum |
+| **Fotostreifen** | 3 | Zwei identische Streifen nebeneinander – in der Mitte durchschneiden, ergibt zwei klassische 5×15-cm-Fotostreifen |
+| **4er-Collage** | 4 | 2×2 Fotos mit Anlassname und Datum |
+
+- **Design:** *Party* (Violett/Pink mit Konfetti), *Bunt* (Sonnengelb), *Elegant* (Hochzeit, Creme/Gold) oder *Nacht* (Schwarz/Gold, z.B. Silvester).
+- **Text auf dem Foto:** leer lassen = Name des Anlasses. Das Datum kann ausgeblendet werden.
+- Welche Layouts die Gäste sehen und welches vorausgewählt ist, lässt sich einstellen. Die Vorschau zeigt das Design sofort.
+- Die Einzelaufnahmen werden zusätzlich im Unterordner `photos/einzelbilder/` aufbewahrt.
 
 ### Kamera
 - **Webcam:** Kamera auswählen («Kameras suchen»). Die Live-Ansicht kann gespiegelt werden; das gespeicherte Foto ist immer seitenrichtig.
@@ -93,6 +110,8 @@ app.py              Webserver (Flask) und API
 core/camera.py      Ansteuerung Spiegelreflex (digiCamControl / gphoto2)
 core/printer.py     Drucken über Windows (pywin32) bzw. macOS (CUPS), Druckerfreigaben
 core/cloud.py       Cloudspeicher, Upload und Freigabelinks
+core/layouts.py     Foto-Layouts und Designs (Rahmen, Collage, Fotostreifen)
 core/config.py      Einstellungen (config.json)
 templates/, static/ Oberfläche (Fotobox + Einstellungen)
+static/fonts/       Schriften Pacifico und Baloo 2 (SIL Open Font License)
 ```
