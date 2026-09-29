@@ -16,4 +16,4 @@ start "Fotobox Server" /min python app.py
 timeout /t 3 /nobreak >nul
 
 REM Vollbild-Kiosk mit Microsoft Edge (Beenden: Alt+F4)
-start "" msedge --kiosk http://localhost:5000 --edge-kiosk-type=fullscreen --no-first-run
+start "" msedge --kiosk http://127.0.0.1:5050 --edge-kiosk-type=fullscreen --no-first-run

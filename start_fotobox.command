@@ -16,7 +16,7 @@ if [ ! -d .venv ]; then
     .venv/bin/pip install -r requirements.txt || exit 1
 fi
 
-URL="http://localhost:5000"
+URL="http://127.0.0.1:5050"
 (
     sleep 3
     if [ -d "/Applications/Google Chrome.app" ]; then

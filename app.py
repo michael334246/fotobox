@@ -1,6 +1,6 @@
 """Fotobox – einfache Fotobox-App mit Kamera, Windows-Druck und Cloud-Freigabe.
 
-Start:  python app.py   (danach http://localhost:5000 im Browser / Kiosk-Modus öffnen)
+Start:  python app.py   (danach http://127.0.0.1:5050 im Browser / Kiosk-Modus öffnen)
 """
 import base64
 import datetime
@@ -311,6 +311,6 @@ def api_dropbox_exchange():
 
 if __name__ == "__main__":
     host = os.environ.get("FOTOBOX_HOST", "127.0.0.1")
-    port = int(os.environ.get("FOTOBOX_PORT", "5000"))
+    port = int(os.environ.get("FOTOBOX_PORT", "5050"))
     print(f"Fotobox läuft auf http://{host}:{port}  (Einstellungen: /settings)")
     app.run(host=host, port=port, threaded=True)

@@ -16,7 +16,7 @@ Einfache Fotobox-App für **Windows und Mac**: Kamera auslösen, Foto über eine
 3. `start_fotobox.bat` doppelklicken. Beim ersten Start werden die Abhängigkeiten installiert, danach öffnet sich die Fotobox im Vollbild (Microsoft Edge Kiosk-Modus, beenden mit `Alt+F4`).
 4. Beim ersten Start den Kamerazugriff im Browser erlauben.
 
-Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://localhost:5000> öffnen.
+Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127.0.0.1:5050> öffnen.
 
 ## Installation (Mac)
 
@@ -29,6 +29,8 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://loc
 4. Beim ersten Start werden die Abhängigkeiten installiert. Danach öffnet sich die Fotobox im Vollbild in **Google Chrome** (Kiosk-Modus, beenden mit `Cmd+Q`). Ohne Chrome öffnet sich Safari – Vollbild dann mit `Ctrl+Cmd+F`.
 5. Kamerazugriff erlauben (im Browser und ggf. unter *Systemeinstellungen → Datenschutz & Sicherheit → Kamera*).
 6. Beenden: das Terminalfenster schliessen.
+
+> Die Fotobox läuft auf Port **5050** (<http://127.0.0.1:5050>). Port 5000 ist auf dem Mac durch den AirPlay-Empfänger belegt und liefert «Zugriff auf localhost wurde verweigert». Ein anderer Port lässt sich mit der Umgebungsvariable `FOTOBOX_PORT` wählen.
 
 ### Unterschiede auf dem Mac
 
