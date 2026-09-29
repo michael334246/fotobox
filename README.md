@@ -23,8 +23,9 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://loc
 1. [Python 3.10+](https://www.python.org/downloads/macos/) installieren (oder mit Homebrew: `brew install python`).
 2. Repository herunterladen (*Code → Download ZIP*) und entpacken, z.B. nach `Programme/Fotobox` oder auf den Schreibtisch.
 3. `start_fotobox.command` doppelklicken.
-   - Beim allerersten Mal meldet macOS evtl. «nicht verifizierter Entwickler»: Rechtsklick auf die Datei → *Öffnen* → *Öffnen*.
-   - Falls die Datei nicht startet: im Terminal einmalig `chmod +x start_fotobox.command` ausführen.
+   - **Meldung «kann nicht geöffnet werden» / «aus dem Internet geladen»:** Das ist der Schutz von macOS (Gatekeeper) für heruntergeladene Dateien. Meldung schliessen, dann *Systemeinstellungen → Datenschutz & Sicherheit* ganz nach unten scrollen und bei «start_fotobox.command wurde blockiert» auf **«Trotzdem öffnen»** klicken. Danach nochmals doppelklicken.
+   - **Alternative über das Terminal:** `xattr -dr com.apple.quarantine ` eintippen (mit Leerzeichen am Schluss), den Fotobox-Ordner ins Terminalfenster ziehen, Enter. Damit entfernt macOS die Internet-Markierung für den ganzen Ordner.
+   - Falls die Datei danach immer noch nicht startet: im Terminal einmalig `chmod +x ` eintippen, die Datei `start_fotobox.command` ins Fenster ziehen, Enter.
 4. Beim ersten Start werden die Abhängigkeiten installiert. Danach öffnet sich die Fotobox im Vollbild in **Google Chrome** (Kiosk-Modus, beenden mit `Cmd+Q`). Ohne Chrome öffnet sich Safari – Vollbild dann mit `Ctrl+Cmd+F`.
 5. Kamerazugriff erlauben (im Browser und ggf. unter *Systemeinstellungen → Datenschutz & Sicherheit → Kamera*).
 6. Beenden: das Terminalfenster schliessen.
