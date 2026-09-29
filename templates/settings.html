@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fotobox Einstellungen</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="settings">
+  <h1>Einstellungen <a class="btn" href="/">Zur Fotobox</a></h1>
+
+  <fieldset>
+    <legend>Allgemein</legend>
+    <label><span>Name des Anlasses</span><input type="text" data-key="event_name"></label>
+    <div class="row">
+      <label><span>Countdown (Sekunden)</span><input type="number" min="0" max="10" data-key="countdown"></label>
+      <label><span>Zurück zur Live-Ansicht nach (Sekunden, 0 = nie)</span><input type="number" min="0" data-key="review_timeout"></label>
+    </div>
+    <label><span>Ordner für Fotos</span><input type="text" data-key="photo_dir"></label>
+    <label><span>Admin-PIN für diese Seite (leer = kein Schutz)</span><input type="password" data-key="admin_pin"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Kamera</legend>
+    <label><span>Kameratyp</span>
+      <select data-key="camera.mode" id="cameraMode">
+        <option value="webcam">Webcam / USB-Kamera (im Browser)</option>
+        <option value="dslr">Spiegelreflex / Systemkamera (digiCamControl)</option>
+      </select>
+    </label>
+    <div id="webcamOptions">
+      <div class="row">
+        <label><span>Kamera</span><select data-key="camera.webcam_device_id" id="webcamSelect"></select></label>
+        <button class="btn" id="webcamRefresh">Kameras suchen</button>
+      </div>
+    </div>
+    <div id="dslrOptions">
+      <label><span>digiCamControl-Webserver</span><input type="text" data-key="camera.digicam_url"></label>
+      <label><span>Bildordner von digiCamControl (Session-Ordner)</span><input type="text" data-key="camera.digicam_folder"></label>
+      <p class="note">In digiCamControl unter <em>Settings → Webserver</em> den Webserver aktivieren.</p>
+    </div>
+    <label class="check"><input type="checkbox" data-key="camera.mirror_preview"> Live-Ansicht spiegeln (wie ein Spiegel)</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Drucker</legend>
+    <label class="check"><input type="checkbox" data-key="printer.enabled"> Drucken erlauben</label>
+    <div class="row">
+      <label><span>Drucker</span><select data-key="printer.name" id="printerSelect"></select></label>
+      <button class="btn" id="printerRefresh">Aktualisieren</button>
+    </div>
+    <div class="row">
+      <label><span>Windows-Druckerfreigabe verbinden</span>
+        <input type="text" id="sharePath" placeholder="\\EMPFANG-PC\Fotodrucker"></label>
+      <button class="btn" id="printerConnect">Verbinden</button>
+    </div>
+    <div class="row">
+      <label><span>Druckformat</span>
+        <select data-key="printer.fit_mode">
+          <option value="fill">Randlos (Bild wird zugeschnitten)</option>
+          <option value="fit">Ganzes Bild (mit Rand)</option>
+        </select>
+      </label>
+      <label><span>Max. Kopien pro Foto</span><input type="number" min="1" max="20" data-key="printer.max_copies"></label>
+    </div>
+    <label class="check"><input type="checkbox" data-key="printer.auto_print"> Jedes Foto automatisch einmal drucken</label>
+    <button class="btn" id="printerTest">Testseite drucken</button>
+    <span id="printerStatus"></span>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cloudspeicher &amp; Teilen</legend>
+    <div id="storages"></div>
+    <div class="row">
+      <label><span>Neuen Cloudspeicher hinzufügen</span><select id="newStorageType"></select></label>
+      <button class="btn" id="addStorage">Hinzufügen</button>
+    </div>
+    <label><span>Fotos teilen (QR-Code) über</span><select data-key="cloud.share_storage_id" id="shareStorage"></select></label>
+    <p class="note">Gäste scannen nach der Aufnahme einen QR-Code und erhalten einen öffentlichen Link zu ihrem Foto.</p>
+  </fieldset>
+
+  <div class="save-bar">
+    <span id="saveStatus"></span>
+    <button class="btn primary" id="saveBtn">Speichern</button>
+  </div>
+
+  <template id="storageTpl">
+    <div class="storage">
+      <div class="storage-head">
+        <strong class="storage-type"></strong>
+        <button class="btn test">Verbindung testen</button>
+        <button class="btn remove">Entfernen</button>
+      </div>
+      <label><span>Bezeichnung</span><input type="text" data-field="name"></label>
+      <div class="fields"></div>
+      <div class="dropbox-connect" hidden>
+        <div class="row">
+          <button class="btn dbx-open">1. Bei Dropbox anmelden</button>
+          <label><span>2. Angezeigten Code einfügen</span><input type="text" class="dbx-code"></label>
+          <button class="btn dbx-exchange">3. Verbinden</button>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" data-field="auto_upload"> Jedes Foto automatisch hochladen</label>
+      <span class="status"></span>
+    </div>
+  </template>
+
+  <script src="{{ url_for('static', filename='settings.js') }}"></script>
+</body>
+</html>

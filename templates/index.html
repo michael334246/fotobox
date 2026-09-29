@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ conf.event_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="booth">
+  <header class="topbar">
+    <h1 id="eventName">{{ conf.event_name }}</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="galleryBtn" title="Galerie">🖼️</button>
+      <a class="icon-btn" href="/settings" title="Einstellungen">⚙️</a>
+    </div>
+  </header>
+
+  <!-- Live-Ansicht -->
+  <section id="liveScreen" class="screen active">
+    <div class="stage">
+      <video id="video" autoplay playsinline muted></video>
+      <img id="dslrView" alt="" hidden>
+      <div id="countdown" class="countdown" hidden></div>
+      <div id="flash" class="flash"></div>
+      <div id="cameraMessage" class="message" hidden></div>
+    </div>
+    <button id="shutterBtn" class="shutter">📸 Foto machen</button>
+    <p class="hint">oder Leertaste / Buzzer drücken</p>
+  </section>
+
+  <!-- Vorschau nach der Aufnahme -->
+  <section id="reviewScreen" class="screen">
+    <div class="stage"><img id="reviewImg" alt="Aufgenommenes Foto"></div>
+    <div class="actions">
+      <div id="printGroup" class="print-group">
+        <button class="btn" id="copiesMinus">−</button>
+        <span id="copies">1</span>
+        <button class="btn" id="copiesPlus">+</button>
+        <button class="btn primary" id="printBtn">🖨️ Drucken</button>
+      </div>
+      <button class="btn primary" id="shareBtn">📲 Teilen</button>
+      <button class="btn" id="againBtn">🔁 Neues Foto</button>
+    </div>
+  </section>
+
+  <!-- Galerie -->
+  <section id="galleryScreen" class="screen">
+    <div class="gallery-head">
+      <h2>Galerie</h2>
+      <button class="btn" id="galleryClose">Zurück</button>
+    </div>
+    <div id="gallery" class="gallery"></div>
+  </section>
+
+  <!-- Teilen-Dialog -->
+  <div id="shareModal" class="modal" hidden>
+    <div class="modal-box">
+      <h2>Foto aufs Handy holen</h2>
+      <p>QR-Code mit der Handykamera scannen:</p>
+      <img id="shareQr" alt="QR-Code">
+      <p class="link" id="shareLink"></p>
+      <button class="btn" id="shareClose">Schliessen</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

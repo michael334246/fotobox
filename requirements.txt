@@ -1,0 +1,5 @@
+flask>=3.0
+pillow>=10.0
+qrcode>=7.4
+requests>=2.31
+pywin32>=306; sys_platform == "win32"

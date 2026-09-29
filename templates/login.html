@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fotobox Anmeldung</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="settings">
+  <h1>Einstellungen</h1>
+  <form method="post">
+    <fieldset>
+      <legend>Admin-PIN</legend>
+      <label><span>PIN</span><input type="password" name="pin" inputmode="numeric" autofocus></label>
+      {% if failed %}<p class="status-err">Falsche PIN.</p>{% endif %}
+      <button class="btn primary">Anmelden</button>
+      <a class="btn" href="/">Zurück</a>
+    </fieldset>
+  </form>
+</body>
+</html>
