@@ -16,6 +16,9 @@ let busy = false;
 let copies = 1;
 let reviewTimer = null;
 let liveTimer = null;
+let liveSource = null;     // <video> oder <img>, aus dem die Vorschau gezeichnet wird
+let view = null;           // Rahmen der Live-Vorschau {size, holes, overlayImg}
+let taken = [];            // bereits aufgenommene Bilder dieser Serie (Image)
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -51,8 +54,8 @@ function confetti() {
   const ctx = canvas.getContext("2d");
   canvas.width = innerWidth;
   canvas.height = innerHeight;
-  const colors = ["#ffd166", "#f72585", "#4cc9f0", "#7209b7", "#ffffff", "#ff9e00", "#06d6a0"];
-  const parts = Array.from({ length: 180 }, () => ({
+  const colors = ["#38bdf8", "#67e8f9", "#3b82f6", "#ffffff", "#a5b4fc", "#fcd34d"];
+  const parts = Array.from({ length: 160 }, () => ({
     x: canvas.width / 2 + (Math.random() - 0.5) * canvas.width * 0.3,
     y: canvas.height * 0.55,
     vx: (Math.random() - 0.5) * 22,
@@ -63,7 +66,7 @@ function confetti() {
     color: pick(colors),
   }));
   const start = performance.now();
-  (function frame(now) {
+  (function step(now) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (const p of parts) {
       p.vy += 0.55;
@@ -78,7 +81,7 @@ function confetti() {
       ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
       ctx.restore();
     }
-    if (now - start < 3500) requestAnimationFrame(frame);
+    if (now - start < 3500) requestAnimationFrame(step);
     else ctx.clearRect(0, 0, canvas.width, canvas.height);
   })(start);
 }
@@ -86,8 +89,7 @@ function confetti() {
 // ------------------------------------------------------------------ Kamera
 async function startWebcam() {
   const video = $("video");
-  video.hidden = false;
-  video.classList.toggle("mirror", state.camera.mirror_preview);
+  liveSource = video;
   const constraints = {
     audio: false,
     video: {
@@ -104,24 +106,25 @@ async function startWebcam() {
 }
 
 function startDslrPreview() {
-  const img = $("dslrView");
-  img.hidden = false;
-  img.classList.toggle("mirror", state.camera.mirror_preview);
+  // Einzelbilder abwechselnd laden, damit immer ein vollständiges Bild gezeichnet wird
   const base = state.camera.digicam_url.replace(/\/$/, "");
   api("/api/liveview/start", { method: "POST" }).catch((e) => cameraMessage(e.message));
-  img.onerror = () => {};
-  const refresh = () => {
-    if (!busy) img.src = `${base}/liveview.jpg?t=${Date.now()}`;
-    liveTimer = setTimeout(refresh, 100);
+  const next = () => {
+    const img = new Image();
+    img.onload = () => {
+      liveSource = img;
+      liveTimer = setTimeout(next, 80);
+    };
+    img.onerror = () => (liveTimer = setTimeout(next, 500));
+    img.src = `${base}/liveview.jpg?t=${Date.now()}`;
   };
-  refresh();
+  next();
 }
 
 function startGphotoPreview() {
   // MJPEG-Stream vom Server; wird beim Auslösen beendet und danach neu gestartet
   const img = $("dslrView");
-  img.hidden = false;
-  img.classList.toggle("mirror", state.camera.mirror_preview);
+  liveSource = img;
   img.onerror = () => {
     cameraMessage("Keine Live-Ansicht – ist die Kamera angeschlossen und eingeschaltet?");
     clearTimeout(liveTimer);
@@ -153,16 +156,93 @@ async function captureShot() {
     const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
     const form = new FormData();
     form.append("photo", blob, "photo.jpg");
-    const r = await api("/api/shot", { method: "POST", body: form });
-    return { shot: r.shot, thumb: URL.createObjectURL(blob) };
+    return (await api("/api/shot", { method: "POST", body: form })).shot;
   }
   if (state.camera.mode === "gphoto2") stopGphotoPreview();
   try {
-    const r = await api("/api/capture", { method: "POST" });
-    return { shot: r.shot, thumb: null };
+    return (await api("/api/capture", { method: "POST" })).shot;
   } finally {
     if (state.camera.mode === "gphoto2") startGphotoPreview();
   }
+}
+
+// ------------------------------------------------------------------ Live-Vorschau mit Rahmen
+function frameQuery() {
+  return frame ? `?frame=${encodeURIComponent(frame)}` : "";
+}
+
+async function loadView() {
+  const info = await api(`/api/layouts/${layout.id}/overlay${frameQuery()}`);
+  let overlayImg = null;
+  if (info.overlay) {
+    overlayImg = new Image();
+    overlayImg.src = `/api/layouts/${layout.id}/overlay.png${frameQuery()}${frameQuery() ? "&" : "?"}t=${Date.now()}`;
+    await overlayImg.decode().catch(() => {});
+  }
+  view = { ...info, overlayImg, plain: !info.overlay };
+}
+
+function sourceSize(src) {
+  return src instanceof HTMLVideoElement ? [src.videoWidth, src.videoHeight] : [src.naturalWidth, src.naturalHeight];
+}
+
+function drawCover(ctx, src, x, y, w, h, radius, mirror) {
+  const [sw, sh] = sourceSize(src);
+  if (!sw || !sh) return;
+  const scale = Math.max(w / sw, h / sh);
+  const cw = w / scale, ch = h / scale;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, radius);
+  ctx.clip();
+  if (mirror) {
+    ctx.translate(x + w, y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(src, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, w, h);
+  } else {
+    ctx.drawImage(src, (sw - cw) / 2, (sh - ch) / 2, cw, ch, x, y, w, h);
+  }
+  ctx.restore();
+}
+
+function renderPreview() {
+  requestAnimationFrame(renderPreview);
+  const canvas = $("preview");
+  if (!view || !liveSource) return;
+  const ctx = canvas.getContext("2d");
+  const mirror = state.camera.mirror_preview;
+
+  if (view.plain) {  // ohne Rahmen und ohne Text: Kamerabild im Originalformat
+    const [sw, sh] = sourceSize(liveSource);
+    if (!sw) return;
+    if (canvas.width !== sw || canvas.height !== sh) [canvas.width, canvas.height] = [sw, sh];
+    drawCover(ctx, liveSource, 0, 0, sw, sh, 0, mirror);
+    return;
+  }
+
+  const k = 0.6;
+  const [W, H] = view.size.map((v) => Math.round(v * k));
+  if (canvas.width !== W || canvas.height !== H) [canvas.width, canvas.height] = [W, H];
+  ctx.fillStyle = "#0b1a3d";
+  ctx.fillRect(0, 0, W, H);
+  view.holes.forEach(([x1, y1, x2, y2, r], i) => {
+    const n = i % layout.shots;
+    const box = [x1 * k, y1 * k, (x2 - x1) * k, (y2 - y1) * k, r * k];
+    if (taken[n]) drawCover(ctx, taken[n], ...box, false);
+    else if (n === taken.length) drawCover(ctx, liveSource, ...box, mirror);
+    else {  // noch offenes Feld: Nummer anzeigen
+      ctx.fillStyle = "#16284f";
+      ctx.beginPath();
+      ctx.roundRect(...box);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.font = `700 ${Math.round(box[3] * 0.3)}px Outfit, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(n + 1), box[0] + box[2] / 2, box[1] + box[3] / 2);
+    }
+  });
+  if (view.overlayImg) ctx.drawImage(view.overlayImg, 0, 0, W, H);
 }
 
 // ------------------------------------------------------------------ Layout-Auswahl
@@ -194,6 +274,7 @@ function renderLayoutPicker() {
 function selectLayout(l) {
   layout = l;
   document.querySelectorAll(".layout-card").forEach((c) => c.classList.toggle("selected", c.dataset.id === l.id));
+  loadView().catch((e) => toast(e.message));
 }
 
 // ------------------------------------------------------------------ Rahmen-Auswahl (Gäste)
@@ -230,6 +311,49 @@ function selectFrame(id) {
   renderLayoutPicker();
 }
 
+// ------------------------------------------------------------------ Beenden (nur mit Passwort)
+function setupExit() {
+  const input = $("exitPassword");
+  const keypad = $("keypad");
+  for (const key of ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "✓"]) {
+    const b = document.createElement("button");
+    b.textContent = key;
+    b.onclick = () => {
+      if (key === "⌫") input.value = input.value.slice(0, -1);
+      else if (key === "✓") confirmExit();
+      else input.value += key;
+    };
+    keypad.appendChild(b);
+  }
+  $("exitBtn").onclick = () => {
+    input.value = "";
+    $("exitError").textContent = "";
+    $("exitModal").hidden = false;
+    input.focus();
+  };
+  $("exitCancel").onclick = () => ($("exitModal").hidden = true);
+  $("exitConfirm").onclick = confirmExit;
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation(); // Leertaste/Enter sollen hier kein Foto auslösen
+    if (e.key === "Enter") confirmExit();
+  });
+}
+
+async function confirmExit() {
+  try {
+    await api("/api/exit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: $("exitPassword").value }),
+    });
+    $("exitModal").hidden = true;
+    toast("Fotobox wird beendet …", 10000);
+  } catch (err) {
+    $("exitError").textContent = err.message;
+    $("exitPassword").value = "";
+  }
+}
+
 // ------------------------------------------------------------------ Ablauf
 async function countdown(seconds) {
   const cd = $("countdown");
@@ -254,14 +378,19 @@ function flash() {
   setTimeout(() => f.classList.remove("on"), 60);
 }
 
+function loadImage(url) {
+  const img = new Image();
+  img.src = url;
+  return img.decode().then(() => img);
+}
+
 async function takePhoto() {
   if (busy || !$("liveScreen").classList.contains("active")) return;
   busy = true;
   document.body.classList.add("shooting");
-  const thumbs = $("shotThumbs");
   const badge = $("shotBadge");
   const cd = $("countdown");
-  thumbs.innerHTML = "";
+  taken = [];
   const shots = [];
   try {
     for (let n = 1; n <= layout.shots; n++) {
@@ -279,12 +408,8 @@ async function takePhoto() {
       $("countPhrase").textContent = "";
       flash();
       const shot = await captureShot();
-      shots.push(shot.shot);
-      if (shot.thumb) {
-        const img = document.createElement("img");
-        img.src = shot.thumb;
-        thumbs.appendChild(img);
-      }
+      shots.push(shot);
+      if (n < layout.shots) taken.push(await loadImage(`/shots/${shot}`));
     }
     cd.hidden = true;
     badge.hidden = true;
@@ -294,7 +419,7 @@ async function takePhoto() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ layout: layout.id, shots, frame }),
     });
-    await preload(photo.url);
+    await loadImage(photo.url).catch(() => {});
     $("busyOverlay").hidden = true;
     openReview(photo);
     confetti();
@@ -304,18 +429,10 @@ async function takePhoto() {
     cd.hidden = true;
     badge.hidden = true;
     $("busyOverlay").hidden = true;
-    thumbs.innerHTML = "";
+    taken = [];
     document.body.classList.remove("shooting");
     busy = false;
   }
-}
-
-function preload(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = img.onerror = resolve;
-    img.src = url;
-  });
 }
 
 function openReview(photo) {
@@ -339,7 +456,7 @@ async function printPhoto() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ copies }),
     });
-    toast(r.copies > 1 ? `🖨️ ${r.copies} Ausdrucke kommen gleich!` : "🖨️ Dein Foto wird gedruckt!");
+    toast(r.copies > 1 ? `${r.copies} Ausdrucke kommen gleich!` : "Dein Foto wird gedruckt!");
   } catch (err) {
     toast(err.message, 6000);
   } finally {
@@ -350,7 +467,7 @@ async function printPhoto() {
 async function sharePhoto() {
   const btn = $("shareBtn");
   btn.disabled = true;
-  toast("☁️ Foto wird hochgeladen …", 20000);
+  toast("Foto wird hochgeladen …", 20000);
   try {
     const r = await api(`/api/photos/${current.name}/share`, { method: "POST" });
     $("toast").hidden = true;
@@ -388,10 +505,12 @@ async function init() {
   $("shareBtn").hidden = !state.share_enabled;
   renderLayoutPicker();
   await setupFramePicker().catch(() => {});
+  setupExit();
 
   if (state.camera.mode === "dslr") startDslrPreview();
   else if (state.camera.mode === "gphoto2") startGphotoPreview();
   else startWebcam();
+  renderPreview();
 
   $("shutterBtn").onclick = takePhoto;
   $("againBtn").onclick = () => show("liveScreen");
@@ -404,6 +523,7 @@ async function init() {
   $("copiesPlus").onclick = () => ($("copies").textContent = copies = Math.min(state.max_copies, copies + 1));
 
   document.addEventListener("keydown", (e) => {
+    if (!$("exitModal").hidden) return;
     if (e.code === "Space" || e.code === "Enter") {
       e.preventDefault();
       if (!$("frameModal").hidden) $("frameModal").hidden = true;

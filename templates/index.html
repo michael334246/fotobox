@@ -7,34 +7,46 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='booth.css') }}">
 </head>
 <body class="booth">
-  <!-- schwebende Party-Deko im Hintergrund -->
-  <div class="floaties" aria-hidden="true">
-    <span>🎉</span><span>✨</span><span>🎈</span><span>🥳</span><span>📸</span><span>💃</span>
-    <span>🕺</span><span>🍾</span><span>⭐</span><span>🎶</span><span>🎊</span><span>💖</span>
-  </div>
+  <!-- weiche Lichtflächen im Hintergrund -->
+  <div class="orbs" aria-hidden="true"><i></i><i></i><i></i></div>
 
   <header class="topbar">
-    <button class="icon-btn" id="galleryBtn" title="Galerie">🖼️</button>
+    <button class="icon-btn" id="galleryBtn" title="Galerie" aria-label="Galerie">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+    </button>
     <h1 class="title" id="eventName">{{ conf.event_name }}</h1>
-    <a class="icon-btn" href="/settings" title="Einstellungen">⚙️</a>
+    <div class="topbar-right">
+      <a class="icon-btn" href="/settings" title="Einstellungen" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </a>
+      <button class="icon-btn" id="exitBtn" title="Fotobox beenden" aria-label="Fotobox beenden">
+        <svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 7a8 8 0 1 0 11.4 0"/></svg>
+      </button>
+    </div>
   </header>
 
-  <!-- Live-Ansicht -->
+  <!-- Live-Ansicht: Kamerabild und Rahmen werden auf #preview zusammengesetzt -->
   <section id="liveScreen" class="screen active">
     <div class="stage">
-      <video id="video" autoplay playsinline muted></video>
-      <img id="dslrView" alt="" hidden>
+      <canvas id="preview"></canvas>
+      <video id="video" class="source" autoplay playsinline muted></video>
+      <img id="dslrView" class="source" alt="">
       <div id="shotBadge" class="shot-badge" hidden></div>
       <div id="countdown" class="countdown" hidden><span id="countNum"></span><small id="countPhrase"></small></div>
       <div id="flash" class="flash"></div>
       <div id="cameraMessage" class="message" hidden></div>
-      <div id="shotThumbs" class="shot-thumbs"></div>
     </div>
 
     <div class="controls">
       <div id="layoutPicker" class="layout-picker"></div>
-      <button id="frameBtn" class="frame-btn" hidden><span>🖼️</span><small>Rahmen</small><b id="frameName"></b></button>
-      <button id="shutterBtn" class="shutter"><span class="shutter-icon">📸</span><span>Los geht's!</span></button>
+      <button id="frameBtn" class="frame-btn" hidden>
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
+        <small>Rahmen</small><b id="frameName"></b>
+      </button>
+      <button id="shutterBtn" class="shutter">
+        <svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+        <span>Foto machen</span>
+      </button>
     </div>
   </section>
 
@@ -46,18 +58,18 @@
         <button class="round-btn" id="copiesMinus" aria-label="weniger">−</button>
         <span id="copies">1</span>
         <button class="round-btn" id="copiesPlus" aria-label="mehr">+</button>
-        <button class="pill pink" id="printBtn">🖨️ Drucken</button>
+        <button class="btn primary" id="printBtn">Drucken</button>
       </div>
-      <button class="pill blue" id="shareBtn">📲 Aufs Handy</button>
-      <button class="pill ghost" id="againBtn">🔁 Nochmal!</button>
+      <button class="btn accent" id="shareBtn">Aufs Handy</button>
+      <button class="btn ghost" id="againBtn">Nochmal</button>
     </div>
   </section>
 
   <!-- Galerie -->
   <section id="galleryScreen" class="screen">
     <div class="gallery-head">
-      <h2>Eure Fotos 💖</h2>
-      <button class="pill ghost" id="galleryClose">Zurück</button>
+      <h2>Eure Fotos</h2>
+      <button class="btn ghost" id="galleryClose">Zurück</button>
     </div>
     <div id="gallery" class="gallery"></div>
   </section>
@@ -65,25 +77,39 @@
   <!-- Teilen-Dialog -->
   <div id="shareModal" class="modal" hidden>
     <div class="modal-box">
-      <h2>Hol dir dein Foto! 📲</h2>
+      <h2>Hol dir dein Foto</h2>
       <p>QR-Code mit der Handykamera scannen</p>
       <img id="shareQr" alt="QR-Code">
       <p class="link" id="shareLink"></p>
-      <button class="pill blue" id="shareClose">Fertig</button>
+      <button class="btn primary" id="shareClose">Fertig</button>
     </div>
   </div>
 
   <!-- Rahmen-Galerie für Gäste -->
   <div id="frameModal" class="modal" hidden>
-    <div class="frame-box">
-      <h2>Wähle deinen Rahmen ✨</h2>
+    <div class="modal-box wide">
+      <h2>Wähle deinen Rahmen</h2>
       <div id="frameGrid" class="frame-grid"></div>
-      <button class="pill blue" id="frameClose">Fertig</button>
+      <button class="btn primary" id="frameClose">Fertig</button>
     </div>
   </div>
 
-  <!-- «Wird gezaubert» während das Layout erstellt wird -->
-  <div id="busyOverlay" class="busy" hidden><div class="spinner">✨</div><p>Wird gezaubert …</p></div>
+  <!-- Beenden nur mit Passwort -->
+  <div id="exitModal" class="modal" hidden>
+    <div class="modal-box">
+      <h2>Fotobox beenden</h2>
+      <p>Bitte Passwort (Admin-PIN) eingeben</p>
+      <input type="password" id="exitPassword" class="pin-input" autocomplete="off">
+      <div class="keypad" id="keypad"></div>
+      <p class="error" id="exitError"></p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="exitCancel">Abbrechen</button>
+        <button class="btn danger" id="exitConfirm">Beenden</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="busyOverlay" class="busy" hidden><div class="spinner"></div><p>Dein Foto wird erstellt …</p></div>
 
   <canvas id="confetti" class="confetti"></canvas>
   <div id="toast" class="toast" hidden></div>

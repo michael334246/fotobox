@@ -12,8 +12,6 @@ if not exist .venv (
     call .venv\Scripts\activate.bat
 )
 
-start "Fotobox Server" /min python app.py
-timeout /t 3 /nobreak >nul
-
-REM Vollbild-Kiosk mit Microsoft Edge (Beenden: Alt+F4)
-start "" msedge --kiosk http://127.0.0.1:5050 --edge-kiosk-type=fullscreen --no-first-run
+REM Fotobox im Vollbild starten (ohne Konsolenfenster). Schliessen nur mit Admin-PIN
+REM ueber den Beenden-Knopf in der Fotobox; Meldungen stehen in fotobox.log.
+start "" .venv\Scripts\pythonw.exe kiosk.py

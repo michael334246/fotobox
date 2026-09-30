@@ -2,3 +2,6 @@ config.json
 photos/
 .venv/
 __pycache__/
+.fotobox-exit
+.browser-profile/
+fotobox.log

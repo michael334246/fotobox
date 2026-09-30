@@ -15,7 +15,7 @@ Einfache Fotobox-App für **Windows und Mac**: Kamera auslösen, Foto über eine
 
 1. [Python 3.10+](https://www.python.org/downloads/) installieren (Häkchen «Add Python to PATH» setzen).
 2. Repository herunterladen (*Code → Download ZIP*) und entpacken, z.B. nach `C:\Fotobox`.
-3. `start_fotobox.bat` doppelklicken. Beim ersten Start werden die Abhängigkeiten installiert, danach öffnet sich die Fotobox im Vollbild (Microsoft Edge Kiosk-Modus, beenden mit `Alt+F4`).
+3. `start_fotobox.bat` doppelklicken. Beim ersten Start werden die Abhängigkeiten installiert, danach öffnet sich die Fotobox im Vollbild (Microsoft Edge oder Google Chrome im Kiosk-Modus). Beenden nur mit Passwort, siehe [Beenden mit Passwort](#beenden-mit-passwort).
 4. Beim ersten Start den Kamerazugriff im Browser erlauben.
 
 Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127.0.0.1:5050> öffnen.
@@ -28,9 +28,9 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127
    - **Meldung «kann nicht geöffnet werden» / «aus dem Internet geladen»:** Das ist der Schutz von macOS (Gatekeeper) für heruntergeladene Dateien. Meldung schliessen, dann *Systemeinstellungen → Datenschutz & Sicherheit* ganz nach unten scrollen und bei «start_fotobox.command wurde blockiert» auf **«Trotzdem öffnen»** klicken. Danach nochmals doppelklicken.
    - **Alternative über das Terminal:** `xattr -dr com.apple.quarantine ` eintippen (mit Leerzeichen am Schluss), den Fotobox-Ordner ins Terminalfenster ziehen, Enter. Damit entfernt macOS die Internet-Markierung für den ganzen Ordner.
    - Falls die Datei danach immer noch nicht startet: im Terminal einmalig `chmod +x ` eintippen, die Datei `start_fotobox.command` ins Fenster ziehen, Enter.
-4. Beim ersten Start werden die Abhängigkeiten installiert. Danach öffnet sich die Fotobox im Vollbild in **Google Chrome** (Kiosk-Modus, beenden mit `Cmd+Q`). Ohne Chrome öffnet sich Safari – Vollbild dann mit `Ctrl+Cmd+F`.
+4. Beim ersten Start werden die Abhängigkeiten installiert. Danach öffnet sich die Fotobox im Vollbild in **Google Chrome** (Kiosk-Modus). Ohne Chrome öffnet sich Safari – Vollbild dann mit `Ctrl+Cmd+F`; der Schutz vor dem Schliessen funktioniert nur mit Chrome.
 5. Kamerazugriff erlauben (im Browser und ggf. unter *Systemeinstellungen → Datenschutz & Sicherheit → Kamera*).
-6. Beenden: das Terminalfenster schliessen.
+6. Das Terminalfenster kann danach geschlossen werden. Beenden nur mit Passwort, siehe [Beenden mit Passwort](#beenden-mit-passwort).
 
 > Die Fotobox läuft auf Port **5050** (<http://127.0.0.1:5050>). Port 5000 ist auf dem Mac durch den AirPlay-Empfänger belegt und liefert «Zugriff auf localhost wurde verweigert». Ein anderer Port lässt sich mit der Umgebungsvariable `FOTOBOX_PORT` wählen.
 
@@ -49,12 +49,22 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127
 ## Bedienung
 
 - **Layout wählen:** unten die gewünschte Karte antippen (oder Pfeiltasten ← →).
-- **Foto machen:** grosser Knopf «Los geht's!», Touchscreen, Leertaste oder Enter (USB-Buzzer, die eine Taste simulieren, funktionieren ebenfalls).
-- Countdown mit lustigen Posen-Sprüchen; bei Fotostreifen und Collage werden automatisch mehrere Fotos nacheinander gemacht («Foto 2 von 4»).
-- Danach erscheint das fertige Bild mit Konfetti und den Knöpfen **Drucken** (Anzahl Kopien wählbar), **Aufs Handy** (QR-Code) und **Nochmal!**.
+- **Live-Vorschau mit Rahmen:** Das Kamerabild erscheint direkt im gewählten Rahmen – so sieht man schon vor dem Auslösen, wie das fertige Foto aussieht. Bei Fotostreifen und Collage stehen bereits gemachte Fotos in ihren Feldern, das Kamerabild im nächsten.
+- **Foto machen:** grosser Knopf «Foto machen», Touchscreen, Leertaste oder Enter (USB-Buzzer, die eine Taste simulieren, funktionieren ebenfalls).
+- Countdown mit Posen-Sprüchen; bei Fotostreifen und Collage werden automatisch mehrere Fotos nacheinander gemacht («Foto 2 von 4»).
+- Danach erscheint das fertige Bild mit Konfetti und den Knöpfen **Drucken** (Anzahl Kopien wählbar), **Aufs Handy** (QR-Code) und **Nochmal**.
 - Nach der eingestellten Zeit ohne Bedienung springt die Fotobox automatisch zur Live-Ansicht zurück.
-- 🖼️ oben rechts öffnet die Galerie (auch ältere Fotos drucken/teilen), ⚙️ die Einstellungen.
+- Oben links öffnet sich die Galerie (auch ältere Fotos drucken/teilen), oben rechts die Einstellungen und der Beenden-Knopf.
 - Alle Fotos liegen zusätzlich lokal im Ordner `photos/`.
+
+## Beenden mit Passwort
+
+Die Fotobox lässt sich nur mit Passwort schliessen – das Passwort ist die **Admin-PIN** aus den Einstellungen (ohne gesetzte PIN lässt sich die Fotobox nicht beenden; dann zuerst eine PIN festlegen).
+
+- Beenden: Knopf ⏻ oben rechts → PIN über das Tastenfeld eingeben → «Beenden».
+- Das Startprogramm `kiosk.py` (wird von `start_fotobox.bat` / `start_fotobox.command` gestartet) überwacht den Browser: Wird er ohne Passwort geschlossen (z.B. `Alt+F4`, `Cmd+Q`), öffnet es die Fotobox nach etwa einer Sekunde wieder.
+- Grenzen: Ein Webbrowser kann Tastenkombinationen des Betriebssystems nicht sperren (z.B. `Ctrl+Alt+Del`, Task-Manager, `Cmd+Tab`). Für eine vollständig abgeschottete Fotobox unter Windows zusätzlich den **zugewiesenen Zugriff** (Einstellungen → Konten → Andere Benutzer → Kiosk einrichten) für einen eigenen Fotobox-Benutzer verwenden.
+- Meldungen des Startprogramms stehen in `fotobox.log`.
 
 ## Einstellungen (`/settings`)
 
@@ -67,22 +77,22 @@ In den Einstellungen unter **«Rahmen & Titel»** den gewünschten Rahmen in der
 | Rahmen | Motive | Titel-Vorschlag |
 |---|---|---|
 | Ohne Rahmen | reines Foto (Titel optional als Schriftzug im Bild) | – |
-| Party | Konfetti, Luftschlangen, Violett/Pink | Let's Party! |
-| Geburtstag | Wimpelkette, Luftballons, buntes Konfetti | Happy Birthday! |
-| Hochzeit | Creme/Gold, Blumenranken, Herzen, Ringe | Just Married |
-| Strand | Himmel, Sonne, Wellen, Sand, Palmen | Beach Party |
-| Urlaub | Luftpost-Rand, Briefmarke, Stempel, Flugzeug | Grüsse aus dem Urlaub |
-| Silvester | Nachthimmel, Feuerwerk, Gold | Happy New Year! |
-| Weihnachten | Rot, Schneeflocken, Tannenbäume, Sterne | Frohe Weihnachten |
+| Party | Neon-Farbverlauf Pink/Blau, Lichtpunkte, Konfetti | Let's Party! |
+| Geburtstag | Pastell-Farbverlauf, glänzende Luftballons, Konfetti | Happy Birthday! |
+| Hochzeit | Creme/Rosé, Eukalyptuszweige, feiner Goldrahmen, Schreibschrift | Just Married |
+| Strand | Sonnenuntergang-Farbverlauf, Sonne, Wellenlinien, Palmblätter | Beach Party |
+| Urlaub | Titel als «Boarding Pass», Flugroute mit Flugzeug | Grüsse aus dem Urlaub |
+| Silvester | Nachtblau, goldene Lichtpunkte, Feuerwerk | Happy New Year! |
+| Weihnachten | Tannengrün/Weinrot, goldene Lichter, Schneeflocken, Schreibschrift | Frohe Weihnachten |
 | Baby & Taufe | Pastell, Wolken, Mond, Sterne | Willkommen, kleiner Schatz |
 | Oktoberfest | weiss-blaue Rauten, Lebkuchenherzen | O'zapft is! |
-| Elegant | Dunkelblau/Schwarz, Goldrahmen, Art-déco-Ecken | – |
+| Elegant | Schwarz, Goldrahmen, Art-déco-Ecken, Titel in Grossbuchstaben | – |
 
 - **Titel anzeigen:** ein-/ausschalten. Ohne Titel und Datum werden die Fotos grösser.
 - **Titel bearbeiten:** beliebiger Text (z.B. «Sarah wird 30!»). Leer = Name des Anlasses. Mit «Vorschlag» den passenden Titel des Rahmens übernehmen.
 - **Datum anzeigen:** ein-/ausschalten.
 - **Gäste dürfen den Rahmen selbst wählen:** An der Fotobox erscheint dann neben den Layouts der Knopf *🖼️ Rahmen* mit der Rahmen-Galerie.
-- Alle Rahmen sind als Vektorgrafik gezeichnet und im Druck gestochen scharf.
+- Alle Rahmen sind als Vektorgrafik gezeichnet (moderne Farbverläufe, abgerundete Fotoecken) und im Druck gestochen scharf.
 
 | Layout | Aufnahmen | Ergebnis (10×15 cm) |
 |---|---|---|
@@ -131,6 +141,7 @@ core/printer.py     Drucken über Windows (pywin32) bzw. macOS (CUPS), Druckerfr
 core/cloud.py       Cloudspeicher, Upload und Freigabelinks
 core/layouts.py     Foto-Layouts und Rahmen-Galerie (Vektorgrafik)
 core/config.py      Einstellungen (config.json)
+kiosk.py            Startprogramm: Vollbild-Browser, öffnet ihn wieder, bis mit Passwort beendet wird
 templates/, static/ Oberfläche (Fotobox + Einstellungen)
-static/fonts/       Schriften Pacifico und Baloo 2 (SIL Open Font License)
+static/fonts/       Schriften Outfit und Great Vibes (SIL Open Font License)
 ```

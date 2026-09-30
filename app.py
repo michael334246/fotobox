@@ -25,6 +25,7 @@ app.secret_key = os.environ.get("FOTOBOX_SECRET") or secrets.token_hex(16)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 uploader = cloud.Uploader()
+EXIT_FLAG = os.path.join(cfg.BASE_DIR, ".fotobox-exit")
 NAME_RE = re.compile(r"^[\w\-]+\.jpe?g$", re.IGNORECASE)
 
 
@@ -139,6 +140,13 @@ def photo_file(name):
     return send_from_directory(photo_dir(), name, max_age=3600)
 
 
+@app.route("/shots/<name>")
+def shot_file(name):
+    """Einzelaufnahme (für die Live-Vorschau bei Fotostreifen und Collage)."""
+    shot_path(name)
+    return send_from_directory(shots_dir(), name, max_age=3600)
+
+
 # --------------------------------------------------------------------------- Fotobox-API
 @app.get("/api/state")
 def api_state():
@@ -202,10 +210,7 @@ def api_compose():
     if len(paths) != layouts.LAYOUTS[layout_id]["shots"]:
         return error("Falsche Anzahl Aufnahmen für dieses Layout")
 
-    design = design_of(conf)
-    frame = data.get("frame")
-    if design["guest_frames"] and (frame in layouts.FRAMES or frame == "none"):
-        design["frame"] = frame
+    design = _guest_design(conf, data.get("frame"))
 
     name = new_photo_name()
     target = os.path.join(photo_dir(), name)
@@ -240,6 +245,46 @@ def api_layout_preview(layout_id):
     resp = Response(layouts.preview_jpeg(layout_id, design, width), mimetype="image/jpeg")
     resp.headers["Cache-Control"] = "max-age=60"
     return resp
+
+
+def _guest_design(conf, frame):
+    """Gespeicherte Rahmen-Einstellungen, ggf. mit dem vom Gast gewählten Rahmen."""
+    design = design_of(conf)
+    if design["guest_frames"] and (frame in layouts.FRAMES or frame == "none"):
+        design["frame"] = frame
+    return design
+
+
+@app.get("/api/layouts/<layout_id>/overlay")
+def api_layout_overlay(layout_id):
+    """Fotofelder der Live-Vorschau (der Rahmen selbst kommt als PNG von overlay.png)."""
+    if layout_id not in layouts.LAYOUTS:
+        abort(404)
+    return jsonify(layouts.overlay_info(layout_id, _guest_design(cfg.load(), request.args.get("frame"))))
+
+
+@app.get("/api/layouts/<layout_id>/overlay.png")
+def api_layout_overlay_png(layout_id):
+    if layout_id not in layouts.LAYOUTS:
+        abort(404)
+    png = layouts.overlay_png(layout_id, _guest_design(cfg.load(), request.args.get("frame")))
+    resp = Response(png, mimetype="image/png")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.post("/api/exit")
+def api_exit():
+    """Fotobox beenden – nur mit Admin-PIN. kiosk.py sieht die Markierungsdatei und schliesst den Browser."""
+    pin = cfg.load().get("admin_pin")
+    if not pin:
+        return error("Zuerst in den Einstellungen eine Admin-PIN festlegen – sie ist das Passwort zum Beenden.")
+    if (request.get_json(silent=True) or {}).get("password") != pin:
+        return error("Falsches Passwort", 403)
+    with open(EXIT_FLAG, "w") as f:
+        f.write("exit")
+    threading.Timer(1.0, lambda: os._exit(0)).start()
+    return jsonify({"ok": True})
 
 
 @app.get("/api/frames")
