@@ -176,7 +176,7 @@ async function loadView() {
   let overlayImg = null;
   if (info.overlay) {
     overlayImg = new Image();
-    overlayImg.src = `/api/layouts/${layout.id}/overlay.png${frameQuery()}${frameQuery() ? "&" : "?"}t=${Date.now()}`;
+    overlayImg.src = `/api/layouts/${layout.id}/overlay.png${frameQuery()}`;
     await overlayImg.decode().catch(() => {});
   }
   view = { ...info, overlayImg, plain: !info.overlay };

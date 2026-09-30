@@ -292,6 +292,62 @@ def api_frames():
     return jsonify(layouts.frame_list())
 
 
+@app.post("/api/liveview/start")
+def api_liveview_start():
+    try:
+        camera.start_liveview(cfg.load()["camera"])
+    except camera.CameraError as exc:
+        return error(str(exc), 500)
+    return jsonify({"ok": True})
+
+
+@app.get("/api/liveview.mjpg")
+def api_liveview_gphoto():
+    """Live-Ansicht der gphoto2-Kamera als MJPEG-Stream."""
+    def stream():
+        try:
+            for frame in camera.gphoto.preview_frames():
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+        except camera.CameraError as exc:
+            print(f"[Kamera] {exc}")
+    return Response(stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
+@app.get("/api/photos")
+def api_photos():
+    names = sorted((n for n in os.listdir(photo_dir()) if NAME_RE.match(n)), reverse=True)[:60]
+    return jsonify([{"name": n, "url": url_for("photo_file", name=n)} for n in names])
+
+
+@app.post("/api/photos/<name>/print")
+def api_print(name):
+    conf = cfg.load()["printer"]
+    if not conf["enabled"]:
+        return error("Drucken ist deaktiviert")
+    copies = min(max(int(request.json.get("copies", 1) if request.is_json else 1), 1), conf["max_copies"])
+    try:
+        printer.print_image(photo_path(name), conf["name"], copies, conf["fit_mode"])
+    except Exception as exc:
+        return error(str(exc), 500)
+    return jsonify({"ok": True, "copies": copies})
+
+
+@app.post("/api/photos/<name>/share")
+def api_share(name):
+    conf = cfg.load()
+    storage = find_storage(conf, conf["cloud"]["share_storage_id"])
+    if not storage:
+        return error("Kein Cloudspeicher für die Freigabe ausgewählt")
+    try:
+        link = uploader.share(storage, photo_path(name), name)
+    except Exception as exc:
+        return error(f"Freigabe fehlgeschlagen: {exc}", 500)
+    buf = io.BytesIO()
+    qrcode.make(link, border=2).save(buf, format="PNG")
+    qr = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    return jsonify({"ok": True, "link": link, "qr": qr})
+
+
 # --------------------------------------------------------------------------- Einstellungs-API
 @app.get("/api/settings")
 @admin_required

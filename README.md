@@ -144,4 +144,5 @@ core/config.py      Einstellungen (config.json)
 kiosk.py            Startprogramm: Vollbild-Browser, öffnet ihn wieder, bis mit Passwort beendet wird
 templates/, static/ Oberfläche (Fotobox + Einstellungen)
 static/fonts/       Schriften Outfit und Great Vibes (SIL Open Font License)
+tests/              Rauchtest der API: python -m unittest discover tests
 ```
