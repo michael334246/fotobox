@@ -105,5 +105,30 @@ body.settings { max-width: 900px; margin: 0 auto; padding: 1rem 16px 4rem; heigh
 }
 .settings .preview-head { margin: 1.2rem 0 0; font-size: 1rem; }
 .settings .checks { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
+@font-face { font-family: "Outfit"; src: url("fonts/Outfit.ttf") format("truetype"); font-weight: 100 900; }
+@font-face { font-family: "Great Vibes"; src: url("fonts/GreatVibes-Regular.ttf") format("truetype"); }
+.settings .logo-box { width: 160px; height: 90px; display: grid; place-items: center; border-radius: 10px;
+  background: repeating-conic-gradient(#2a3038 0 25%, #1c2128 0 50%) 0 0 / 16px 16px; color: var(--muted); font-size: 0.85rem; }
+.settings .logo-box img { max-width: 150px; max-height: 80px; }
+.settings .custom-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; margin-top: 0.8rem; }
+.settings .custom-item { background: var(--bg); border-radius: 12px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.settings .custom-item img { width: 100%; border-radius: 6px; }
+.settings .ed-style { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; align-items: end; }
+.settings .ed-style label { margin: 0.3rem 0; }
+.settings .ed-style label.color input { width: 56px; height: 36px; padding: 0; border: none; background: none; }
+.settings .ed-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; color: var(--muted); }
+.settings .ed-stickers { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.settings .ed-stickers button { width: 44px; height: 44px; padding: 4px; border-radius: 10px; border: 1px solid #3a434e; background: var(--bg); cursor: pointer; }
+.settings .ed-stickers img { width: 100%; height: 100%; }
+.settings .ed-workspace { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.6rem; }
+.settings .ed-stage { position: relative; flex: 1 1 480px; max-width: 640px; align-self: flex-start; touch-action: none; user-select: none; }
+.settings .ed-stage > img { width: 100%; display: block; border-radius: 8px; }
+.settings .ed-stage.portrait { max-width: 260px; }
+.settings .ed-el { position: absolute; transform: translate(-50%, -50%); cursor: grab; white-space: nowrap; line-height: 1;
+  outline: 1px dashed rgba(255, 255, 255, 0.5); outline-offset: 3px; }
+.settings .ed-el.selected { outline: 2px solid var(--accent-2); }
+.settings .ed-el img { display: block; width: 100%; pointer-events: none; }
+.settings .ed-side { flex: 1 1 240px; display: flex; flex-direction: column; gap: 0.5rem; }
+.settings .ed-preview { width: 100%; border-radius: 8px; }
 .status-ok { color: var(--ok); }
 .status-err { color: #ff7b72; }

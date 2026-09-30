@@ -43,6 +43,10 @@
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
         <small>Rahmen</small><b id="frameName"></b>
       </button>
+      <button id="filterBtn" class="frame-btn" hidden>
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5.5"/><circle cx="15" cy="9" r="5.5"/><circle cx="12" cy="15" r="5.5"/></svg>
+        <small>Filter</small><b id="filterName">Original</b>
+      </button>
       <button id="shutterBtn" class="shutter">
         <svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
         <span>Foto machen</span>
@@ -94,6 +98,18 @@
     </div>
   </div>
 
+  <!-- Filter für Gäste -->
+  <div id="filterModal" class="modal" hidden>
+    <div class="modal-box wide">
+      <h2>Wähle deinen Filter</h2>
+      <p>Farbe</p>
+      <div id="colorFilters" class="chip-grid"></div>
+      <p>Spass (folgt deinem Gesicht)</p>
+      <div id="faceFilters" class="chip-grid"></div>
+      <button class="btn primary" id="filterClose">Fertig</button>
+    </div>
+  </div>
+
   <!-- Beenden nur mit Passwort -->
   <div id="exitModal" class="modal" hidden>
     <div class="modal-box">
@@ -114,6 +130,7 @@
   <canvas id="confetti" class="confetti"></canvas>
   <div id="toast" class="toast" hidden></div>
 
+  <script src="{{ url_for('static', filename='filters.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

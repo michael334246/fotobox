@@ -6,6 +6,7 @@ import base64
 import datetime
 import functools
 import io
+import mimetypes
 import os
 import re
 import secrets
@@ -19,6 +20,12 @@ from flask import Flask, Response, abort, jsonify, redirect, render_template, re
 
 from core import camera, cloud, layouts, printer
 from core import config as cfg
+from PIL import Image, UnidentifiedImageError
+
+# Windows kennt diese Dateitypen teils nicht – nötig für die Gesichtserkennung im Browser
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("application/wasm", ".wasm")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FOTOBOX_SECRET") or secrets.token_hex(16)
@@ -27,6 +34,7 @@ app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 uploader = cloud.Uploader()
 EXIT_FLAG = os.path.join(cfg.BASE_DIR, ".fotobox-exit")
 NAME_RE = re.compile(r"^[\w\-]+\.jpe?g$", re.IGNORECASE)
+UPLOAD_DIR = os.path.join(cfg.BASE_DIR, "uploads")  # Logo und eigene Rahmen
 
 
 # --------------------------------------------------------------------------- Hilfsfunktionen
@@ -63,7 +71,26 @@ def shot_path(name):
 def design_of(conf):
     design = layouts.normalize(conf["design"])
     design["frame_text"] = design.get("frame_text") or conf["event_name"]
+    design["custom_frames"] = [dict(c, path=os.path.join(UPLOAD_DIR, c["file"])) for c in design["custom_frames"]]
+    logo = os.path.join(UPLOAD_DIR, "logo.png")
+    if os.path.exists(logo):
+        design["logo_path"] = logo
+        design["logo_mtime"] = os.path.getmtime(logo)  # neues Logo = neue Vorschau
     return design
+
+
+def layout_ids(design):
+    return {l["id"]: l for l in layouts.layout_list(design)}
+
+
+def read_image(file):
+    try:
+        img = Image.open(file.stream)
+        img.load()
+        return img
+    except (UnidentifiedImageError, OSError):
+        abort(Response('{"ok": false, "error": "Das ist keine Bilddatei (PNG oder JPG)."}', 400,
+                       mimetype="application/json"))
 
 
 def new_photo_name():
@@ -160,13 +187,11 @@ def api_state():
         "print_enabled": conf["printer"]["enabled"],
         "max_copies": conf["printer"]["max_copies"],
         "share_enabled": bool(find_storage(conf, conf["cloud"]["share_storage_id"])),
-        "layouts": [
-            {"id": k, "label": v["label"], "shots": v["shots"]}
-            for k, v in layouts.LAYOUTS.items() if k in design["layouts"]
-        ],
+        "layouts": [l for l in layouts.layout_list(design) if l["id"] in design["layouts"]],
         "default_layout": design["default_layout"],
         "frame": design["frame"],
         "guest_frames": design["guest_frames"],
+        "filters_enabled": conf["filters"]["enabled"],
     })
 
 
@@ -204,10 +229,11 @@ def api_compose():
     conf = cfg.load()
     data = request.get_json(force=True)
     layout_id = data.get("layout")
-    if layout_id not in layouts.LAYOUTS:
+    all_layouts = layout_ids(design_of(conf))
+    if layout_id not in all_layouts:
         return error("Unbekanntes Layout")
     paths = [shot_path(n) for n in data.get("shots", [])]
-    if len(paths) != layouts.LAYOUTS[layout_id]["shots"]:
+    if len(paths) != all_layouts[layout_id]["shots"]:
         return error("Falsche Anzahl Aufnahmen für dieses Layout")
 
     design = _guest_design(conf, data.get("frame"))
@@ -229,7 +255,7 @@ def api_compose():
 @app.get("/api/layouts/<layout_id>/preview.jpg")
 def api_layout_preview(layout_id):
     """Vorschau mit Beispielbildern; Rahmen/Titel lassen sich per Parameter überschreiben."""
-    if layout_id not in layouts.LAYOUTS:
+    if layout_id not in layout_ids(design_of(cfg.load())):
         abort(404)
     conf = cfg.load()
     design = design_of(conf)
@@ -258,14 +284,14 @@ def _guest_design(conf, frame):
 @app.get("/api/layouts/<layout_id>/overlay")
 def api_layout_overlay(layout_id):
     """Fotofelder der Live-Vorschau (der Rahmen selbst kommt als PNG von overlay.png)."""
-    if layout_id not in layouts.LAYOUTS:
+    if layout_id not in layout_ids(design_of(cfg.load())):
         abort(404)
     return jsonify(layouts.overlay_info(layout_id, _guest_design(cfg.load(), request.args.get("frame"))))
 
 
 @app.get("/api/layouts/<layout_id>/overlay.png")
 def api_layout_overlay_png(layout_id):
-    if layout_id not in layouts.LAYOUTS:
+    if layout_id not in layout_ids(design_of(cfg.load())):
         abort(404)
     png = layouts.overlay_png(layout_id, _guest_design(cfg.load(), request.args.get("frame")))
     resp = Response(png, mimetype="image/png")
@@ -348,6 +374,117 @@ def api_share(name):
     return jsonify({"ok": True, "link": link, "qr": qr})
 
 
+# --------------------------------------------------------------------------- Logo, eigene Rahmen, Editor
+@app.get("/uploads/logo.png")
+def logo_file():
+    return send_from_directory(UPLOAD_DIR, "logo.png", max_age=0)
+
+
+@app.post("/api/logo")
+@admin_required
+def api_logo_upload():
+    img = read_image(request.files["file"]).convert("RGBA")
+    img.thumbnail((1200, 1200))
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    img.save(os.path.join(UPLOAD_DIR, "logo.png"))
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/logo")
+@admin_required
+def api_logo_delete():
+    path = os.path.join(UPLOAD_DIR, "logo.png")
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/custom-frames")
+@admin_required
+def api_custom_frame_upload():
+    """Eigenen Rahmen (PNG mit durchsichtigen Fotofenstern) hochladen."""
+    img = read_image(request.files["file"])
+    if img.mode not in ("RGBA", "LA", "PA") and "transparency" not in img.info:
+        return error("Der Rahmen braucht durchsichtige Fotofenster – bitte als PNG mit Transparenz speichern.")
+    img = img.convert("RGBA")
+    img.thumbnail((2400, 2400))
+    holes = layouts.detect_holes(img)
+    if not holes:
+        return error("Im Rahmen wurde kein durchsichtiges Fotofenster gefunden.")
+    if len(holes) > 8:
+        return error(f"Zu viele durchsichtige Flächen gefunden ({len(holes)}); höchstens 8 Fotofenster.")
+    frame_id = "custom-" + uuid.uuid4().hex[:6]
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    img.save(os.path.join(UPLOAD_DIR, f"{frame_id}.png"))
+    conf = cfg.load()
+    name = (request.form.get("name") or "").strip()[:40] or "Eigener Rahmen"
+    entry = {"id": frame_id, "name": name, "file": f"{frame_id}.png", "size": list(img.size), "holes": holes}
+    conf["design"]["custom_frames"] = conf["design"].get("custom_frames", []) + [entry]
+    conf["design"]["layouts"] = conf["design"].get("layouts", []) + [frame_id]
+    saved = cfg.save(conf)
+    return jsonify({"ok": True, "frame": entry, "config": saved})
+
+
+@app.delete("/api/custom-frames/<frame_id>")
+@admin_required
+def api_custom_frame_delete(frame_id):
+    conf = cfg.load()
+    d = conf["design"]
+    d["custom_frames"] = [c for c in d.get("custom_frames", []) if c["id"] != frame_id]
+    d["layouts"] = [l for l in d.get("layouts", []) if l != frame_id]
+    d.get("edits", {}).pop(frame_id, None)
+    path = os.path.join(UPLOAD_DIR, f"{frame_id}.png")
+    if re.fullmatch(r"custom-[0-9a-f]{6}", frame_id) and os.path.exists(path):
+        os.remove(path)
+    return jsonify({"ok": True, "config": cfg.save(conf)})
+
+
+def _draft_design(data):
+    """Gespeicherte Einstellungen, überlagert mit den noch nicht gespeicherten aus dem Editor."""
+    conf = cfg.load()
+    design = design_of(conf)
+    for key in ("frame", "show_title", "show_date", "edits", "logo"):
+        if key in data:
+            design[key] = data[key]
+    if "frame_text" in data:
+        design["frame_text"] = data["frame_text"] or conf["event_name"]
+    return design
+
+
+@app.post("/api/editor/preview.jpg")
+@admin_required
+def api_editor_preview():
+    data = request.get_json(force=True)
+    design, layout_id = _draft_design(data), data.get("layout", "single")
+    if layout_id not in layout_ids(design):
+        abort(404)
+    width = min(max(int(data.get("w", 520)), 120), 1200)
+    if data.get("background"):  # ohne Titel/Logo/Sticker, Fotostreifen nur ein Streifen
+        return Response(layouts.editor_background(layout_id, design, width), mimetype="image/jpeg")
+    return Response(layouts.preview_jpeg(layout_id, design, width), mimetype="image/jpeg")
+
+
+@app.post("/api/editor/info")
+@admin_required
+def api_editor_info():
+    """Startwerte für den Editor: Farben/Schrift des Rahmens und Positionen der Elemente."""
+    data = request.get_json(force=True)
+    design, layout_id = _draft_design(data), data.get("layout", "single")
+    key = layouts._edit_key(layout_id, design)
+    pos = layouts.positions(layout_id, design) or layouts.default_positions(layout_id, design)
+    custom = layouts._custom(design, layout_id)
+    size = custom["size"] if custom else ([600, 1800] if layout_id == "strip" else [1800, 1200])
+    return jsonify({"key": key, "style": layouts.frame_style(key if custom else design["frame"], design),
+                    "positions": pos, "cell": size, "custom": bool(custom)})
+
+
+@app.get("/api/stickers/<kind>.png")
+def api_sticker(kind):
+    if kind not in layouts.STICKERS:
+        abort(404)
+    return Response(layouts.sticker_png(kind), mimetype="image/png")
+
+
 # --------------------------------------------------------------------------- Einstellungs-API
 @app.get("/api/settings")
 @admin_required
@@ -358,7 +495,9 @@ def api_get_settings():
         "config": conf,
         "storage_types": cloud.TYPES,
         "frames": layouts.frame_list(),
-        "layouts": [[k, v["label"]] for k, v in layouts.LAYOUTS.items()],
+        "layouts": [[l["id"], l["label"]] for l in layouts.layout_list(conf["design"])],
+        "stickers": [[k, v[0]] for k, v in layouts.STICKERS.items()],
+        "logo": bool(design_of(conf).get("logo_path")),
     })
 
 

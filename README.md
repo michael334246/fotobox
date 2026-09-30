@@ -9,6 +9,8 @@ Einfache Fotobox-App für **Windows und Mac**: Kamera auslösen, Foto über eine
 | **Cloudspeicher** | beliebig viele Speicher hinzufügen: Sync-Ordner (OneDrive, Google Drive, Dropbox-Client, SharePoint), Nextcloud/ownCloud, Dropbox, WebDAV (NAS) |
 | **Layouts** | Gäste wählen vor dem Foto: *Einzelbild*, *Fotostreifen* (3 Fotos) oder *4er-Collage* |
 | **Rahmen-Galerie** | 10 Rahmen für Party, Geburtstag, Hochzeit, Strand, Urlaub, Silvester, Weihnachten, Baby & Taufe, Oktoberfest, Elegant – oder *ohne Rahmen*; Titel ein-/ausblendbar und frei bearbeitbar |
+| **Eigene Rahmen & Logo** | Eigene Rahmen als PNG hochladen (Fotofenster werden automatisch erkannt), Logo hochladen, Rahmen-Editor für Farben, Schrift und Drag & Drop |
+| **Filter** | Farbfilter (Schwarz-Weiss, Vintage, Warm, Kühl, Pop, Verträumt) und lustige Gesichtsfilter (Hund, Hase, Sonnenbrille, Partyhut, Krone, Schnauz) – live vor dem Foto |
 | **Teilen** | Nach der Aufnahme «Teilen» → Foto wird hochgeladen, ein öffentlicher Link erstellt und als QR-Code angezeigt |
 
 ## Installation (Windows)
@@ -50,6 +52,7 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127
 
 - **Layout wählen:** unten die gewünschte Karte antippen (oder Pfeiltasten ← →).
 - **Live-Vorschau mit Rahmen:** Das Kamerabild erscheint direkt im gewählten Rahmen – so sieht man schon vor dem Auslösen, wie das fertige Foto aussieht. Bei Fotostreifen und Collage stehen bereits gemachte Fotos in ihren Feldern, das Kamerabild im nächsten.
+- **Filter:** Knopf «Filter» → Farbfilter und/oder Gesichtsfilter wählen. Der Effekt ist sofort in der Live-Vorschau zu sehen; Gesichtsfilter folgen dem Gesicht und werden ins Foto übernommen.
 - **Foto machen:** grosser Knopf «Foto machen», Touchscreen, Leertaste oder Enter (USB-Buzzer, die eine Taste simulieren, funktionieren ebenfalls).
 - Countdown mit Posen-Sprüchen; bei Fotostreifen und Collage werden automatisch mehrere Fotos nacheinander gemacht («Foto 2 von 4»).
 - Danach erscheint das fertige Bild mit Konfetti und den Knöpfen **Drucken** (Anzahl Kopien wählbar), **Aufs Handy** (QR-Code) und **Nochmal**.
@@ -102,6 +105,29 @@ In den Einstellungen unter **«Rahmen & Titel»** den gewünschten Rahmen in der
 
 Welche Layouts die Gäste sehen und welches vorausgewählt ist, lässt sich ebenfalls einstellen. Die Einzelaufnahmen werden zusätzlich im Unterordner `photos/einzelbilder/` aufbewahrt.
 
+### Logo
+
+Logo hochladen (am besten PNG mit transparentem Hintergrund), Position (Ecke) und Grösse wählen. Das Logo erscheint auf allen Fotos und in der Live-Vorschau. Im Rahmen-Editor lässt es sich zusätzlich frei verschieben.
+
+### Eigene Rahmen
+
+Eigene Rahmen z.B. in Canva gestalten und als **PNG mit durchsichtigen Fotofenstern** exportieren (Querformat 1800×1200 oder Hochformat 1200×1800 Pixel empfohlen).
+
+- Die Fotofenster werden beim Hochladen automatisch erkannt: 1 Fenster = Einzelbild, 3 Fenster = 3 Fotos usw. (höchstens 8). Die Fotos werden in Lesereihenfolge eingesetzt (oben links zuerst).
+- Der Rahmen erscheint danach als eigenes Layout, das die Gäste auswählen können, und wird auch in der Live-Vorschau angezeigt.
+- Titel und Datum stehen unten in der Mitte; im Rahmen-Editor lassen sie sich verschieben (oder «Titel anzeigen» ausschalten, wenn der Rahmen seinen eigenen Text hat).
+
+### Rahmen-Editor
+
+- **Layout bearbeiten:** Einzelbild, Fotostreifen, Collage oder ein eigener Rahmen. Änderungen gelten für den in der Galerie gewählten Rahmen.
+- **Farben & Schrift:** Hintergrund- und Akzentfarben, Farbe von Titel, Datum und Fotorand, Schrift (Modern, Schreibschrift, Elegant), Titelgrösse, Deko an/aus.
+- **Drag & Drop:** Titel, Datum, Logo und Sticker (Herz, Stern, Krone, Ballon …) mit Maus oder Finger verschieben; das ausgewählte Element mit dem Regler vergrössern. «Ergebnis» zeigt das fertige Foto.
+- «Positionen zurücksetzen» bzw. «Alle Änderungen dieses Rahmens zurücksetzen» stellt den Originalzustand wieder her. Übernommen wird alles mit «Speichern».
+
+### Filter
+
+«Gäste dürfen Filter verwenden» schaltet den Filter-Knopf an der Fotobox ein oder aus. Die Gesichtserkennung (Google MediaPipe) ist in der App enthalten und funktioniert ohne Internet; sie braucht einen aktuellen Chrome oder Edge. Bei Spiegelreflexkameras werden die Filter nach der Aufnahme ins Foto eingerechnet.
+
 ### Kamera
 - **Webcam:** Kamera auswählen («Kameras suchen»). Die Live-Ansicht kann gespiegelt werden; das gespeicherte Foto ist immer seitenrichtig.
 - **Spiegelreflex – Mac (gphoto2):** siehe [Unterschiede auf dem Mac](#unterschiede-auf-dem-mac).
@@ -144,5 +170,9 @@ core/config.py      Einstellungen (config.json)
 kiosk.py            Startprogramm: Vollbild-Browser, öffnet ihn wieder, bis mit Passwort beendet wird
 templates/, static/ Oberfläche (Fotobox + Einstellungen)
 static/fonts/       Schriften Outfit und Great Vibes (SIL Open Font License)
+static/filters.js   Farb- und Gesichtsfilter
+static/editor.js    Logo, eigene Rahmen und Rahmen-Editor (Einstellungen)
+static/vendor/      Gesichtserkennung MediaPipe (Apache License 2.0)
+uploads/            hochgeladenes Logo und eigene Rahmen
 tests/              Rauchtest der API: python -m unittest discover tests
 ```

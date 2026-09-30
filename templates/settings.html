@@ -33,6 +33,7 @@
     </div>
     <label class="check"><input type="checkbox" data-key="design.show_date" id="showDate"> Datum anzeigen</label>
     <label class="check"><input type="checkbox" data-key="design.guest_frames"> Gäste dürfen den Rahmen an der Fotobox selbst wählen</label>
+    <label class="check"><input type="checkbox" data-key="filters.enabled"> Gäste dürfen Filter verwenden (Farbfilter und lustige Gesichtsfilter)</label>
 
     <label><span>Layouts, die Gäste auswählen können</span></label>
     <div class="checks" id="layoutChecks"></div>
@@ -40,6 +41,88 @@
 
     <h3 class="preview-head">Vorschau</h3>
     <div class="layout-previews" id="layoutPreviews"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Logo</legend>
+    <div class="row">
+      <div class="logo-box"><img id="logoImg" alt="" hidden><span id="logoNone">Noch kein Logo</span></div>
+      <label><span>Logo hochladen (PNG mit transparentem Hintergrund ideal, oder JPG)</span>
+        <input type="file" id="logoFile" accept="image/png,image/jpeg"></label>
+      <button class="btn" id="logoDelete" type="button">Logo entfernen</button>
+    </div>
+    <label class="check"><input type="checkbox" data-key="design.logo.enabled" id="logoEnabled"> Logo auf den Fotos anzeigen</label>
+    <div class="row">
+      <label><span>Position</span>
+        <select data-key="design.logo.position" id="logoPosition">
+          <option value="br">unten rechts</option><option value="bl">unten links</option>
+          <option value="tr">oben rechts</option><option value="tl">oben links</option>
+        </select>
+      </label>
+      <label><span>Grösse</span><input type="range" min="0.06" max="0.4" step="0.01" data-key="design.logo.size" id="logoSize"></label>
+    </div>
+    <p class="note">Im Rahmen-Editor lässt sich das Logo auch frei verschieben.</p>
+    <span id="logoStatus"></span>
+  </fieldset>
+
+  <fieldset>
+    <legend>Eigene Rahmen</legend>
+    <p class="note">Eigenen Rahmen als <b>PNG mit durchsichtigen Fotofenstern</b> hochladen (z.B. in Canva gestaltet,
+      Format 3:2 wie 1800×1200 Pixel oder hoch 1200×1800). Die Fenster werden automatisch erkannt:
+      1 Fenster = Einzelbild, 3 Fenster = 3 Fotos usw. Der Rahmen erscheint danach als eigenes Layout.</p>
+    <div class="row">
+      <label><span>Name</span><input type="text" id="customName" maxlength="40" placeholder="z.B. Firmenlogo-Rahmen"></label>
+      <label><span>PNG-Datei</span><input type="file" id="customFile" accept="image/png"></label>
+      <button class="btn primary" id="customUpload" type="button">Hochladen</button>
+    </div>
+    <span id="customStatus"></span>
+    <div class="custom-list" id="customList"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Rahmen-Editor</legend>
+    <div class="row">
+      <label><span>Layout bearbeiten</span><select id="edLayout"></select></label>
+      <p class="note" id="edTarget"></p>
+    </div>
+
+    <h3 class="preview-head">Farben &amp; Schrift</h3>
+    <div class="ed-style" id="edStyle">
+      <label class="color" data-builtin><span>Hintergrund</span><input type="color" data-style="base"></label>
+      <label class="color" data-builtin><span>Akzent 1</span><input type="color" data-style="accent0"></label>
+      <label class="color" data-builtin><span>Akzent 2</span><input type="color" data-style="accent1"></label>
+      <label class="color" data-builtin><span>Akzent 3</span><input type="color" data-style="accent2"></label>
+      <label class="color"><span>Titel</span><input type="color" data-style="title_color"></label>
+      <label class="color"><span>Datum</span><input type="color" data-style="subtitle_color"></label>
+      <label class="color" data-builtin><span>Fotorand</span><input type="color" data-style="border"></label>
+      <label class="check" data-builtin><input type="checkbox" data-style="no_border"> kein Rand</label>
+      <label><span>Schrift</span>
+        <select data-style="font"><option value="modern">Modern</option><option value="script">Schreibschrift</option>
+          <option value="elegant">Elegant (Grossbuchstaben)</option></select></label>
+      <label><span>Titelgrösse</span><input type="range" min="0.6" max="1.6" step="0.05" data-style="title_scale"></label>
+      <label class="check" data-builtin><input type="checkbox" data-style="decor"> Deko (Konfetti, Ballone …)</label>
+    </div>
+
+    <h3 class="preview-head">Elemente verschieben (Drag &amp; Drop)</h3>
+    <p class="note">Titel, Datum, Logo und Sticker mit der Maus oder dem Finger verschieben. Ausgewähltes Element
+      mit dem Regler vergrössern/verkleinern.</p>
+    <div class="ed-toolbar">
+      <span>Sticker hinzufügen:</span>
+      <div id="edStickers" class="ed-stickers"></div>
+    </div>
+    <div class="ed-workspace">
+      <div class="ed-stage" id="edStage"><img id="edBg" alt="" draggable="false"></div>
+      <div class="ed-side">
+        <label><span id="edSelName">Kein Element ausgewählt</span>
+          <input type="range" id="edSize" min="0.01" max="0.6" step="0.005" disabled></label>
+        <button class="btn" id="edRemove" type="button" disabled>Sticker entfernen</button>
+        <button class="btn" id="edResetPos" type="button">Positionen zurücksetzen</button>
+        <button class="btn" id="edResetAll" type="button">Alle Änderungen dieses Rahmens zurücksetzen</button>
+        <h3 class="preview-head">Ergebnis</h3>
+        <img id="edPreview" class="ed-preview" alt="">
+      </div>
+    </div>
+    <p class="note">Änderungen werden mit «Speichern» übernommen.</p>
   </fieldset>
 
   <fieldset>
@@ -133,5 +216,6 @@
   </template>
 
   <script src="{{ url_for('static', filename='settings.js') }}"></script>
+  <script src="{{ url_for('static', filename='editor.js') }}"></script>
 </body>
 </html>

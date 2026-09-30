@@ -43,6 +43,7 @@ function show(screen) {
   clearTimeout(reviewTimer);
   if (screen === "liveScreen") $("shareModal").hidden = true;
   if (screen !== "liveScreen") $("frameModal").hidden = true;
+  if (screen !== "liveScreen") $("filterModal").hidden = true;
   if (screen !== "liveScreen" && state.review_timeout > 0) {
     reviewTimer = setTimeout(() => show("liveScreen"), state.review_timeout * 1000);
   }
@@ -153,17 +154,29 @@ async function captureShot() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
-    const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
-    const form = new FormData();
-    form.append("photo", blob, "photo.jpg");
-    return (await api("/api/shot", { method: "POST", body: form })).shot;
+    return uploadShot(applyFilters(canvas));
   }
   if (state.camera.mode === "gphoto2") stopGphotoPreview();
+  let shot;
   try {
-    return (await api("/api/capture", { method: "POST" })).shot;
+    shot = (await api("/api/capture", { method: "POST" })).shot;
   } finally {
     if (state.camera.mode === "gphoto2") startGphotoPreview();
   }
+  if (!filtersActive()) return shot;
+  // Spiegelreflex: Filter nachträglich auf das Kamerafoto anwenden
+  const img = await loadImage(`/shots/${shot}`);
+  const canvas = document.createElement("canvas");
+  [canvas.width, canvas.height] = [img.naturalWidth, img.naturalHeight];
+  canvas.getContext("2d").drawImage(img, 0, 0);
+  return uploadShot(applyFilters(canvas));
+}
+
+async function uploadShot(canvas) {
+  const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
+  const form = new FormData();
+  form.append("photo", blob, "photo.jpg");
+  return (await api("/api/shot", { method: "POST", body: form })).shot;
 }
 
 // ------------------------------------------------------------------ Live-Vorschau mit Rahmen
@@ -183,7 +196,9 @@ async function loadView() {
 }
 
 function sourceSize(src) {
-  return src instanceof HTMLVideoElement ? [src.videoWidth, src.videoHeight] : [src.naturalWidth, src.naturalHeight];
+  if (src instanceof HTMLVideoElement) return [src.videoWidth, src.videoHeight];
+  if (src instanceof HTMLCanvasElement) return [src.width, src.height];
+  return [src.naturalWidth, src.naturalHeight];
 }
 
 function drawCover(ctx, src, x, y, w, h, radius, mirror) {
@@ -211,12 +226,13 @@ function renderPreview() {
   if (!view || !liveSource) return;
   const ctx = canvas.getContext("2d");
   const mirror = state.camera.mirror_preview;
+  const live = filteredPreview(liveSource, ...sourceSize(liveSource));
 
   if (view.plain) {  // ohne Rahmen und ohne Text: Kamerabild im Originalformat
     const [sw, sh] = sourceSize(liveSource);
     if (!sw) return;
     if (canvas.width !== sw || canvas.height !== sh) [canvas.width, canvas.height] = [sw, sh];
-    drawCover(ctx, liveSource, 0, 0, sw, sh, 0, mirror);
+    drawCover(ctx, live, 0, 0, sw, sh, 0, mirror);
     return;
   }
 
@@ -229,7 +245,7 @@ function renderPreview() {
     const n = i % layout.shots;
     const box = [x1 * k, y1 * k, (x2 - x1) * k, (y2 - y1) * k, r * k];
     if (taken[n]) drawCover(ctx, taken[n], ...box, false);
-    else if (n === taken.length) drawCover(ctx, liveSource, ...box, mirror);
+    else if (n === taken.length) drawCover(ctx, live, ...box, mirror);
     else {  // noch offenes Feld: Nummer anzeigen
       ctx.fillStyle = "#16284f";
       ctx.beginPath();
@@ -505,6 +521,7 @@ async function init() {
   $("shareBtn").hidden = !state.share_enabled;
   renderLayoutPicker();
   await setupFramePicker().catch(() => {});
+  setupFilters(state.filters_enabled);
   setupExit();
 
   if (state.camera.mode === "dslr") startDslrPreview();
@@ -527,6 +544,7 @@ async function init() {
     if (e.code === "Space" || e.code === "Enter") {
       e.preventDefault();
       if (!$("frameModal").hidden) $("frameModal").hidden = true;
+      else if (!$("filterModal").hidden) $("filterModal").hidden = true;
       else if ($("liveScreen").classList.contains("active")) takePhoto();
       else if (!$("shareModal").hidden) $("shareModal").hidden = true;
       else show("liveScreen");

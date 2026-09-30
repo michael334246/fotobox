@@ -21,6 +21,12 @@ DEFAULTS = {
         "guest_frames": False,     # Gäste dürfen den Rahmen selbst wählen
         "layouts": ["single", "strip", "grid"],
         "default_layout": "single",
+        "logo": {"enabled": False, "position": "br", "size": 0.18},
+        "custom_frames": [],       # eigene PNG-Rahmen (Dateien in uploads/)
+        "edits": {},               # Änderungen aus dem Rahmen-Editor
+    },
+    "filters": {
+        "enabled": True,           # Farb- und Gesichtsfilter für Gäste
     },
     "camera": {
         # "webcam": Kamera wird im Browser angesteuert (USB-Webcam, integrierte Kamera)

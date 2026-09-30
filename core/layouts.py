@@ -13,6 +13,7 @@ transparentes PNG, in dem die Fotofelder ausgespart sind.
 import datetime
 import functools
 import io
+import json
 import math
 import os
 import random
@@ -495,6 +496,75 @@ NO_FRAME = {"label": "Ohne Rahmen", "title": "", "base": "#ffffff", "blobs": [],
             "title_color": "#1d2433", "subtitle_color": "#8a94a6", "border": None}
 
 
+FONTS = {"modern": MODERN, "script": CURSIVE, "elegant": LUXE}
+DEFAULT_BLOBS = [(0.05, 0.1, 0.5), (0.95, 0.95, 0.5), (0.95, 0.05, 0.35)]
+
+
+def crown(p, cx, cy, s, fill):
+    w, h = s * 0.5, s * 0.36
+    p.polygon([(cx - w, cy + h), (cx - w, cy - h * 0.2), (cx - w * 0.5, cy + h * 0.25), (cx, cy - h),
+               (cx + w * 0.5, cy + h * 0.25), (cx + w, cy - h * 0.2), (cx + w, cy + h)], fill)
+    for x in (cx - w, cx, cx + w):
+        p.circle(x, cy - (h if x == cx else h * 0.2), s * 0.06, fill=C("#ffffff"))
+
+
+# Sticker für den Drag-&-Drop-Editor: Name -> Zeichenfunktion (Mittelpunkt, Grösse)
+STICKERS = {
+    "herz": ("Herz", lambda p, x, y, s: heart(p, x, y, s, C("#ff4d8d"))),
+    "stern": ("Stern", lambda p, x, y, s: star(p, x, y, s / 2, C("#ffc93c"))),
+    "funkeln": ("Funkeln", lambda p, x, y, s: sparkle(p, x, y, s / 2, C("#ffe28a"))),
+    "ballon": ("Ballon", lambda p, x, y, s: balloon(p, x, y - s * 0.15, s * 0.3, "#3b82f6")),
+    "krone": ("Krone", lambda p, x, y, s: crown(p, x, y, s, C("#f5c542"))),
+    "wolke": ("Wolke", lambda p, x, y, s: cloud(p, x, y - s * 0.1, s * 0.55, C("#ffffff"))),
+    "mond": ("Mond", lambda p, x, y, s: moon(p, x, y, s / 2, C("#ffd978"))),
+    "flugzeug": ("Flugzeug", lambda p, x, y, s: plane(p, x, y, s / 2, -0.3, C("#12355b"))),
+    "lebkuchenherz": ("Lebkuchenherz", lambda p, x, y, s: ginger_heart(p, x, y, s * 0.9, "Prost!")),
+}
+
+
+def effective_frame(frame_id, design):
+    """Rahmen mit den Änderungen aus dem Rahmen-Editor (Farben, Schrift, Deko)."""
+    base = FRAMES.get(frame_id, NO_FRAME)
+    e = (design.get("edits") or {}).get(frame_id) or {}
+    f = dict(base)
+    if e.get("base"):
+        f["base"] = e["base"]
+        if not e.get("accents"):  # Akzente zur neuen Grundfarbe hin mischen, damit sie sichtbar wird
+            f["blobs"] = [(_hex(mix(b[0], e["base"], 0.6)),) + tuple(b[1:]) for b in base["blobs"]]
+    if e.get("accents"):
+        spots = [b[1:] for b in base["blobs"]] + DEFAULT_BLOBS[len(base["blobs"]):]
+        f["blobs"] = [(c,) + tuple(spot) for c, spot in zip(e["accents"], spots) if c]
+    for key in ("title_color", "subtitle_color"):
+        if e.get(key):
+            f[key] = e[key]
+    if "border" in e:
+        f["border"] = e["border"] or None
+    if e.get("font") in FONTS:
+        f["title_style"] = FONTS[e["font"]]
+        f.pop("title_glow", None)
+    f["title_scale"] = float(e.get("title_scale") or 1)
+    if e.get("decor") is False:
+        for key in ("glow", "under", "over", "panel_draw", "title_glow"):
+            f.pop(key, None)
+    return f
+
+
+def _hex(rgba):
+    return "#%02x%02x%02x" % tuple(rgba[:3])
+
+
+def frame_style(frame_id, design):
+    """Aktuelle Werte eines Rahmens für den Editor."""
+    f = effective_frame(frame_id, design)
+    base = FRAMES.get(frame_id, NO_FRAME)
+    font = next((k for k, v in FONTS.items() if v is f["title_style"]), "modern")
+    e = (design.get("edits") or {}).get(frame_id) or {}
+    return {"base": f["base"], "accents": [b[0] for b in f["blobs"]][:3],
+            "title_color": f["title_color"], "subtitle_color": f["subtitle_color"],
+            "border": f["border"] or "", "font": font, "title_scale": f["title_scale"],
+            "decor": e.get("decor", True), "has_decor": any(k in base for k in ("glow", "under", "over"))}
+
+
 # --------------------------------------------------------------------------- Geometrie
 def _geometry(layout_id, has_caption):
     """Positionen der Fotos und der Textbänder (Grundgrösse)."""
@@ -507,7 +577,7 @@ def _geometry(layout_id, has_caption):
             else:
                 photos += [(col + 40, 45 + i * 570, col + 560, 585 + i * 570) for i in range(3)]
         return {"W": 1200, "H": 1800, "portrait": True, "photos": photos, "bands": bands,
-                "band": bands[0] if bands else None}
+                "band": bands[0] if bands else None, "copies": 2, "cell_w": 600}
     if layout_id == "grid":
         h = 445 if has_caption else 520
         photos = [(60 + c * 855, 55 + r * (h + 30), 885 + c * 855, 55 + r * (h + 30) + h)
@@ -517,7 +587,7 @@ def _geometry(layout_id, has_caption):
         photos = [(90, 80, 1710, 955 if has_caption else 1120)]
         band = (90, 975, 1710, 1170) if has_caption else None
     return {"W": 1800, "H": 1200, "portrait": False, "photos": photos, "bands": [band] if band else [],
-            "band": band}
+            "band": band, "copies": 1, "cell_w": 1800}
 
 
 def _inner(box, frame):
@@ -545,7 +615,7 @@ def _caption(img, k, band, frame, title, date, portrait):
     style = frame["title_style"]
     if style.get("upper"):
         title = title.upper()
-    size = round((74 if portrait else 88) * style.get("scale", 1) * k)
+    size = round((74 if portrait else 88) * style.get("scale", 1) * frame.get("title_scale", 1) * k)
     date_size = round((28 if portrait else 32) * k)
 
     title_y = y1 * k + h * (0.4 if date else 0.5)
@@ -567,21 +637,38 @@ def _caption(img, k, band, frame, title, date, portrait):
         _tracked(d, (cx, date_y), date, font, frame["subtitle_color"], 0.3 * font.size)
 
 
-# --------------------------------------------------------------------------- Zusammensetzen
+# --------------------------------------------------------------------------- Einstellungen
 def normalize(design):
     """Einstellungen vereinheitlichen (auch ältere config.json-Dateien)."""
     d = dict(design or {})
     frame = d.get("frame") or LEGACY_FRAMES.get(d.get("theme"), d.get("theme")) or "party"
     d["frame"] = frame if frame in FRAMES or frame == "none" else "party"
+    d.setdefault("custom_frames", [])
+    valid = set(LAYOUTS) | {c["id"] for c in d["custom_frames"]}
     d["layouts"] = list(dict.fromkeys(LEGACY_LAYOUTS.get(l, l) for l in d.get("layouts", LAYOUTS)
-                                      if LEGACY_LAYOUTS.get(l, l) in LAYOUTS)) or ["single"]
+                                      if LEGACY_LAYOUTS.get(l, l) in valid)) or ["single"]
     default = LEGACY_LAYOUTS.get(d.get("default_layout"), d.get("default_layout"))
     d["default_layout"] = default if default in d["layouts"] else d["layouts"][0]
     d.setdefault("show_title", True)
     d.setdefault("show_date", True)
     d.setdefault("guest_frames", False)
+    d.setdefault("edits", {})
+    d.setdefault("logo", {})
     d.pop("theme", None)
     return d
+
+
+def layout_list(design):
+    """Alle Layouts inkl. eigener Rahmen: [{id, label, shots}]."""
+    d = normalize(design)
+    items = [{"id": k, "label": v["label"], "shots": v["shots"]} for k, v in LAYOUTS.items()]
+    items += [{"id": c["id"], "label": c["name"], "shots": len(c["holes"]), "custom": True}
+              for c in d["custom_frames"]]
+    return items
+
+
+def _custom(design, layout_id):
+    return next((c for c in design.get("custom_frames", []) if c["id"] == layout_id), None)
 
 
 def _texts(design):
@@ -590,6 +677,49 @@ def _texts(design):
     return title, date
 
 
+def _edit_key(layout_id, design):
+    """Unter diesem Namen speichert der Editor Positionen: eigener Rahmen oder gewählter Rahmen."""
+    return layout_id if _custom(design, layout_id) else design["frame"]
+
+
+def positions(layout_id, design):
+    """Frei platzierte Elemente aus dem Drag-&-Drop-Editor (Anteile der Zelle)."""
+    e = (design.get("edits") or {}).get(_edit_key(layout_id, design)) or {}
+    return (e.get("pos") or {}).get(layout_id) or {}
+
+
+# --------------------------------------------------------------------------- Eigene Rahmen
+def detect_holes(img):
+    """Durchsichtige Fotofenster eines PNG-Rahmens finden (Begrenzungsrechtecke, Lesereihenfolge)."""
+    alpha = img.getchannel("A")
+    step = max(1, max(img.size) // 300)
+    w, h = img.width // step, img.height // step
+    small = alpha.resize((w, h), Image.NEAREST).load()
+    seen = [[False] * w for _ in range(h)]
+    holes = []
+    for y0 in range(h):
+        for x0 in range(w):
+            if seen[y0][x0] or small[x0, y0] >= 32:
+                continue
+            stack, area = [(x0, y0)], 0
+            seen[y0][x0] = True
+            x1, y1, x2, y2 = x0, y0, x0, y0
+            while stack:
+                x, y = stack.pop()
+                area += 1
+                x1, y1, x2, y2 = min(x1, x), min(y1, y), max(x2, x), max(y2, y)
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and not seen[ny][nx] and small[nx, ny] < 32:
+                        seen[ny][nx] = True
+                        stack.append((nx, ny))
+            if area > w * h * 0.015:  # etwas grösser, damit keine Lücke bleibt (der Rahmen deckt den Rand ab)
+                holes.append([max(0, (x1 - 1) * step), max(0, (y1 - 1) * step),
+                              min(img.width, (x2 + 2) * step), min(img.height, (y2 + 2) * step)])
+    row = img.height * 0.1
+    return sorted(holes, key=lambda b: (round(b[1] / row), b[0]))
+
+
+# --------------------------------------------------------------------------- Zeichnen
 def _rounded_mask(size, radius):
     mask = Image.new("L", size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
@@ -623,41 +753,108 @@ def _layer(canvas, fn, g, size, k, seed, ss=SS, blur=0.0):
     canvas.alpha_composite(p.layer(blur))
 
 
-def _caption_only(size, k, title, date, photo=None):
-    """«Ohne Rahmen» mit Titel: Schriftzug auf dunklem Verlauf unten im Bild."""
-    img = photo.copy() if photo else Image.new("RGBA", size, (0, 0, 0, 0))
-    W, H = img.size
+def _caption_bar(canvas, k, g, title, date):
+    """«Ohne Rahmen»: Schriftzug auf dunklem Verlauf unten im Bild."""
+    W, H = canvas.size
     bar_h = int(H * 0.24)
     shade = Image.linear_gradient("L").resize((W, bar_h)).point(lambda v: int(v * 0.7))
-    img.paste(Image.new(img.mode, (W, bar_h), "black"), (0, H - bar_h), shade)
+    canvas.paste(Image.new("RGBA", (W, bar_h), "black"), (0, H - bar_h), shade)
     frame = dict(NO_FRAME, title_color="#ffffff", subtitle_color="#dbe7ff", band_pad=60)
-    kk = W / 1800
-    _caption(img, kk, (0, (H - bar_h * 0.85) / kk, 1800, H / kk), frame, title, date, portrait=False)
-    return img
+    _caption(canvas, k, (0, g["H"] - bar_h * 0.85 / k, g["W"], g["H"]), frame, title, date, portrait=False)
 
 
-def render(layout_id, photos, design, k=1.0, overlay=False):
+def _draw_text(canvas, k, xy, text, style, color, size, glow=None):
+    d = ImageDraw.Draw(canvas)
+    if style.get("upper"):
+        text = text.upper()
+    font = _font(style["font"], max(8, round(size * k)), style.get("weight"))
+    tracking = style.get("tracking", 0) * font.size
+    center = (xy[0] * k, xy[1] * k)
+    if glow:
+        layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        _tracked(ImageDraw.Draw(layer), center, text, font, C(glow, 200), tracking)
+        canvas.alpha_composite(layer.filter(ImageFilter.GaussianBlur(max(1, 14 * k))))
+    _tracked(d, center, text, font, color, tracking)
+
+
+def _logo_box(g, pos, logo, logo_opts):
+    """Mittelpunkt und Breite des Logos (Grundgrösse, bezogen auf die erste Zelle)."""
+    cw, H = g["cell_w"], g["H"]
+    if "logo" in pos:
+        x, y, s = pos["logo"]
+        return x * cw, y * H, s * cw
+    width = float(logo_opts.get("size") or 0.18) * cw
+    height = width * logo.height / logo.width
+    m = 0.035 * max(cw, H)
+    corner = logo_opts.get("position") or "br"
+    x = m + width / 2 if corner[1] == "l" else cw - m - width / 2
+    y = m + height / 2 if corner[0] == "t" else H - m - height / 2
+    return x, y, width
+
+
+def _extras(canvas, k, g, design, layout_id, frame, title, date, default_caption, fallback_pos=None):
+    """Titel/Datum, Logo und Sticker – je Zelle (Fotostreifen: zweimal)."""
+    pos = positions(layout_id, design) or fallback_pos or {}
+    logo_opts = design.get("logo") or {}
+    logo = None
+    if logo_opts.get("enabled") and design.get("logo_path") and os.path.exists(design["logo_path"]):
+        logo = Image.open(design["logo_path"]).convert("RGBA")
+
+    for copy in range(g["copies"]):
+        dx = copy * g["cell_w"]
+        if "title" in pos or "date" in pos:
+            if title and "title" in pos:
+                x, y, sz = pos["title"]
+                _draw_text(canvas, k, (dx + x * g["cell_w"], y * g["H"]), title, frame["title_style"],
+                           frame["title_color"], sz * g["H"], frame.get("title_glow"))
+            if date and "date" in pos:
+                x, y, sz = pos["date"]
+                _draw_text(canvas, k, (dx + x * g["cell_w"], y * g["H"]), date,
+                           {"font": OUTFIT, "weight": "Medium", "tracking": 0.3}, frame["subtitle_color"], sz * g["H"])
+        elif default_caption and (title or date):
+            default_caption(copy)
+
+        stickers = pos.get("stickers") or []
+        if stickers:
+            p = Painter(canvas.size, k)
+            for kind, x, y, sz in stickers:
+                if kind in STICKERS:
+                    STICKERS[kind][1](p, dx + x * g["cell_w"], y * g["H"], sz * g["H"])
+            canvas.alpha_composite(p.layer())
+
+        if logo:
+            x, y, w = _logo_box(g, pos, logo, logo_opts)
+            size = (max(1, round(w * k)), max(1, round(w * k * logo.height / logo.width)))
+            img = logo.resize(size, Image.LANCZOS)
+            canvas.alpha_composite(img, (round((dx + x) * k - size[0] / 2), round(y * k - size[1] / 2)))
+
+
+def _has_extras(layout_id, design, title, date):
+    pos = positions(layout_id, design)
+    return bool(title or date or pos.get("stickers") or (design.get("logo") or {}).get("enabled"))
+
+
+# --------------------------------------------------------------------------- Zusammensetzen
+def render(layout_id, photos, design, k=1.0, overlay=False, extras=True):
     """Fertiges Bild (PIL.Image) oder – mit overlay=True – der Rahmen mit transparenten Fotofeldern.
 
-    Einzelbild ohne Rahmen und ohne Text: None (Original verwenden bzw. keine Maske nötig).
+    extras=False lässt Titel, Datum, Logo und Sticker weg (Hintergrund für den Editor).
+    Einzelbild ohne Rahmen und ohne Zusätze: None (Original verwenden bzw. keine Maske nötig).
     """
     design = normalize(design)
     title, date = _texts(design)
-    has_caption = bool(title or date)
-    frame_id = design["frame"]
+    custom = _custom(design, layout_id)
 
-    if layout_id == "single" and frame_id == "none":
-        if not has_caption:
-            return None
-        if overlay:
-            return _caption_only((round(1800 * k), round(1200 * k)), k, title, date)
-        return _caption_only(None, 1, title, date, photos[0])
+    if custom:
+        return _render_custom(custom, photos, design, k, overlay, extras, title, date)
+    if layout_id == "single" and design["frame"] == "none":
+        return _render_plain(photos, design, k, overlay, extras, title, date)
 
-    frame = FRAMES.get(frame_id, NO_FRAME)
-    g = _geometry(layout_id, has_caption)
+    frame = effective_frame(design["frame"], design)
+    g = _geometry(layout_id, bool(title or date))
     size = (round(g["W"] * k), round(g["H"] * k))
     canvas = _mesh(size, frame["base"], frame["blobs"]).convert("RGBA")
-    seed = sum(map(ord, frame_id + layout_id))
+    seed = sum(map(ord, design["frame"] + layout_id))
 
     if "glow" in frame:  # weiche, unscharfe Lichtpunkte
         _layer(canvas, frame["glow"], g, size, k, seed, ss=1, blur=10)
@@ -676,21 +873,60 @@ def render(layout_id, photos, design, k=1.0, overlay=False):
 
     if "over" in frame:
         _layer(canvas, frame["over"], g, size, k, seed + 3)
-    for band in g["bands"]:
-        _caption(canvas, k, band, frame, title, date, g["portrait"])
+    if extras:
+        _extras(canvas, k, g, design, layout_id, frame, title, date,
+                lambda copy: _caption(canvas, k, g["bands"][copy], frame, title, date, g["portrait"]))
+    return canvas if overlay else canvas.convert("RGB")
+
+
+def _render_plain(photos, design, k, overlay, extras, title, date):
+    """Einzelbild ohne Rahmen: Originalfoto, Zusätze direkt darauf."""
+    if not extras or not _has_extras("single", design, title, date):
+        return None
+    if overlay:
+        canvas = Image.new("RGBA", (round(1800 * k), round(1200 * k)), (0, 0, 0, 0))
+    else:
+        canvas = photos[0].convert("RGBA")
+        k = canvas.width / 1800
+    g = {"W": 1800, "H": canvas.height / k, "copies": 1, "cell_w": 1800, "portrait": False}
+    # Text liegt direkt auf dem Foto: ohne Änderung im Editor weiss
+    edits = design["edits"].get("none") or {}
+    frame = dict(effective_frame("none", design), title_color=edits.get("title_color") or "#ffffff",
+                 subtitle_color=edits.get("subtitle_color") or "#dbe7ff")
+    _extras(canvas, k, g, design, "single", frame, title, date, lambda copy: _caption_bar(canvas, k, g, title, date))
+    return canvas if overlay else canvas.convert("RGB")
+
+
+def _render_custom(custom, photos, design, k, overlay, extras, title, date):
+    """Eigener PNG-Rahmen: Fotos unter die durchsichtigen Fenster legen."""
+    png = Image.open(custom["path"]).convert("RGBA")
+    W, H = custom["size"]
+    size = (round(W * k), round(H * k))
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0) if overlay else (255, 255, 255, 255))
+    if not overlay:
+        for i, (x1, y1, x2, y2) in enumerate(custom["holes"]):
+            box = [round(v * k) for v in (x1, y1, x2, y2)]
+            canvas.paste(ImageOps.fit(photos[i % len(photos)], (box[2] - box[0], box[3] - box[1]), Image.LANCZOS),
+                         box[:2])
+    canvas.alpha_composite(png.resize(size, Image.LANCZOS))
+    if extras:
+        g = {"W": W, "H": H, "copies": 1, "cell_w": W, "portrait": H > W}
+        frame = dict(NO_FRAME, **{k2: v for k2, v in effective_frame(custom["id"], design).items()
+                                  if k2 in ("title_color", "subtitle_color", "title_style", "title_scale")})
+        _extras(canvas, k, g, design, custom["id"], frame, title, date, None,
+                default_positions(custom["id"], design))
     return canvas if overlay else canvas.convert("RGB")
 
 
 def compose(layout_id, photo_paths, design):
-    """Bild aus Aufnahmen erstellen – bei Einzelbild ohne Rahmen und ohne Text: None."""
+    """Bild aus Aufnahmen erstellen – bei Einzelbild ohne Rahmen und ohne Zusätze: None."""
     photos = [ImageOps.exif_transpose(Image.open(p)).convert("RGB") for p in photo_paths]
     return render(layout_id, photos, design)
 
 
-def _cache_key(layout_id, design):
+def _cache_key(layout_id, design, *extra):
     d = normalize(design)
-    return (layout_id, d["frame"], d.get("frame_text", ""), bool(d["show_title"]), bool(d["show_date"]),
-            datetime.date.today().isoformat())
+    return (layout_id, json.dumps(d, sort_keys=True, default=str), datetime.date.today().isoformat()) + extra
 
 
 # --------------------------------------------------------------------------- Live-Vorschau
@@ -698,11 +934,14 @@ def overlay_info(layout_id, design):
     """Maße und Fotofelder der Live-Vorschau (Grundgrösse)."""
     d = normalize(design)
     title, date = _texts(d)
-    has_caption = bool(title or date)
+    custom = _custom(d, layout_id)
+    if custom:
+        return {"size": custom["size"], "holes": [h + [0] for h in custom["holes"]], "overlay": True}
     if layout_id == "single" and d["frame"] == "none":
-        return {"size": [1800, 1200], "holes": [[0, 0, 1800, 1200, 0]], "overlay": has_caption}
-    frame = FRAMES.get(d["frame"], NO_FRAME)
-    g = _geometry(layout_id, has_caption)
+        return {"size": [1800, 1200], "holes": [[0, 0, 1800, 1200, 0]],
+                "overlay": _has_extras("single", d, title, date)}
+    frame = effective_frame(d["frame"], d)
+    g = _geometry(layout_id, bool(title or date))
     holes = []
     for box in g["photos"]:
         inner, r = _inner(box, frame)
@@ -712,11 +951,12 @@ def overlay_info(layout_id, design):
 
 @functools.lru_cache(maxsize=32)
 def _overlay_cached(key):
-    layout_id, frame, title, show_title, show_date, _ = key
-    design = {"frame": frame, "frame_text": title, "show_title": show_title, "show_date": show_date}
-    img = render(layout_id, None, design, k=0.6, overlay=True)
+    layout_id, design_json = key[0], key[1]
+    img = render(layout_id, None, json.loads(design_json), k=0.6, overlay=True)
+    if img is None:  # nichts über dem Kamerabild
+        img = Image.new("RGBA", (1080, 720), (0, 0, 0, 0))
     buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=False)
+    img.save(buf, format="PNG")
     return buf.getvalue()
 
 
@@ -743,19 +983,58 @@ def placeholder_photos():
 
 
 @functools.lru_cache(maxsize=256)
-def _preview_cached(key, width):
-    layout_id, frame, title, show_title, show_date, _ = key
-    design = {"frame": frame, "frame_text": title, "show_title": show_title, "show_date": show_date}
-    photos = [ImageOps.fit(ph, (1200, 800)) for ph in placeholder_photos()][:LAYOUTS[layout_id]["shots"]]
-    img = render(layout_id, photos, design, min(1.0, width / 1500)) or photos[0]
+def _preview_cached(key, width, extras):
+    layout_id, design = key[0], json.loads(key[1])
+    shots = next(l["shots"] for l in layout_list(design) if l["id"] == layout_id)
+    photos = [ImageOps.fit(ph, (1200, 800)) for ph in placeholder_photos()] * 3
+    img = render(layout_id, photos[:shots], design, min(1.0, width / 1500), extras=extras) or photos[0]
     img.thumbnail((width, width))
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG", quality=85)
     return buf.getvalue()
 
 
-def preview_jpeg(layout_id, design, width=480):
-    return _preview_cached(_cache_key(layout_id, design), int(width))
+def preview_jpeg(layout_id, design, width=480, extras=True):
+    return _preview_cached(_cache_key(layout_id, design), int(width), extras)
+
+
+def editor_background(layout_id, design, width=900):
+    """Rahmen ohne Titel/Logo/Sticker, nur die erste Zelle (Fotostreifen: ein Streifen)."""
+    img = Image.open(io.BytesIO(preview_jpeg(layout_id, design, width, extras=False)))
+    d = normalize(design)
+    if layout_id == "strip" and not _custom(d, layout_id):
+        img = img.crop((0, 0, img.width // 2, img.height))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=88)
+    return buf.getvalue()
+
+
+def default_positions(layout_id, design):
+    """Startpositionen für den Drag-&-Drop-Editor (Anteile der Zelle)."""
+    d = normalize(design)
+    custom = _custom(d, layout_id)
+    title_size = 0.07
+    if custom:
+        return {"title": [0.5, 0.9, title_size], "date": [0.5, 0.96, 0.028], "stickers": []}
+    if layout_id == "single" and d["frame"] == "none":
+        return {"title": [0.5, 0.86, title_size], "date": [0.5, 0.94, 0.028], "stickers": []}
+    g = _geometry(layout_id, True)
+    x1, y1, x2, y2 = g["band"]
+    h, cw = y2 - y1, g["cell_w"]
+    frame = effective_frame(d["frame"], d)
+    size = (74 if g["portrait"] else 88) * frame["title_style"].get("scale", 1) * frame.get("title_scale", 1)
+    return {"title": [(x1 + x2) / 2 / cw, (y1 + h * 0.4) / g["H"], size / g["H"]],
+            "date": [(x1 + x2) / 2 / cw, (y1 + h * 0.84) / g["H"], (28 if g["portrait"] else 32) / g["H"]],
+            "stickers": []}
+
+
+@functools.lru_cache(maxsize=32)
+def sticker_png(kind, size=160):
+    p = Painter((size, size), size / 200)
+    STICKERS[kind][1](p, 100, 100, 150)
+    buf = io.BytesIO()
+    p.layer().save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def frame_list():

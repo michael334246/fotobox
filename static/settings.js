@@ -32,7 +32,7 @@ function setPath(obj, path, value) {
 
 function readInput(el) {
   if (el.type === "checkbox") return el.checked;
-  if (el.type === "number") return Number(el.value);
+  if (el.type === "number" || el.type === "range") return Number(el.value);
   return el.value;
 }
 function writeInput(el, value) {
@@ -291,6 +291,7 @@ async function init() {
   renderDesign();
   renderStorages();
   updateCameraMode();
+  initEditor(r).catch((e) => console.error(e));
 
   $("cameraMode").onchange = updateCameraMode;
   $("webcamRefresh").onclick = loadWebcams;
