@@ -14,11 +14,13 @@ DEFAULTS = {
     "admin_pin": "",
     "photo_dir": os.path.join(BASE_DIR, "photos"),
     "design": {
-        "theme": "party",          # siehe core/layouts.py THEMES
-        "frame_text": "",          # leer = Name des Anlasses
+        "frame": "party",          # Rahmen, siehe core/layouts.py FRAMES ("none" = ohne Rahmen)
+        "show_title": True,
+        "frame_text": "",          # Titel auf dem Rahmen (leer = Name des Anlasses)
         "show_date": True,
-        "layouts": ["classic", "polaroid", "strip", "grid"],
-        "default_layout": "polaroid",
+        "guest_frames": False,     # Gäste dürfen den Rahmen selbst wählen
+        "layouts": ["single", "strip", "grid"],
+        "default_layout": "single",
     },
     "camera": {
         # "webcam": Kamera wird im Browser angesteuert (USB-Webcam, integrierte Kamera)
@@ -60,7 +62,12 @@ def load():
         if not os.path.exists(CONFIG_PATH):
             return copy.deepcopy(DEFAULTS)
         with open(CONFIG_PATH, encoding="utf-8") as f:
-            return _merge(DEFAULTS, json.load(f))
+            data = json.load(f)
+    design = data.get("design") or {}
+    if "theme" in design and "frame" not in design:  # Einstellungen vor der Rahmen-Galerie
+        design["frame"] = {"bunt": "geburtstag", "elegant": "hochzeit", "nacht": "silvester"}.get(
+            design["theme"], design["theme"])
+    return _merge(DEFAULTS, data)
 
 
 def save(data):

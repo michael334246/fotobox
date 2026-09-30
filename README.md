@@ -7,7 +7,8 @@ Einfache Fotobox-App für **Windows und Mac**: Kamera auslösen, Foto über eine
 | **Kamera** | Webcam/USB-Kamera direkt im Browser *oder* Spiegelreflex-/Systemkamera über [digiCamControl](https://digicamcontrol.com) (Windows) bzw. [gphoto2](http://www.gphoto.org) (Mac) |
 | **Drucken** | Windows-Druckerverwaltung bzw. macOS-Drucksystem: lokale Drucker und **Windows-Druckerfreigaben** (`\\PC\Drucker`), direkt aus den Einstellungen verbindbar |
 | **Cloudspeicher** | beliebig viele Speicher hinzufügen: Sync-Ordner (OneDrive, Google Drive, Dropbox-Client, SharePoint), Nextcloud/ownCloud, Dropbox, WebDAV (NAS) |
-| **Layouts** | Gäste wählen vor dem Foto: *Klassisch*, *Mit Rahmen*, *Fotostreifen* (3 Fotos) oder *4er-Collage* – mit Anlassname, Datum und wählbarem Design |
+| **Layouts** | Gäste wählen vor dem Foto: *Einzelbild*, *Fotostreifen* (3 Fotos) oder *4er-Collage* |
+| **Rahmen-Galerie** | 10 Rahmen für Party, Geburtstag, Hochzeit, Strand, Urlaub, Silvester, Weihnachten, Baby & Taufe, Oktoberfest, Elegant – oder *ohne Rahmen*; Titel ein-/ausblendbar und frei bearbeitbar |
 | **Teilen** | Nach der Aufnahme «Teilen» → Foto wird hochgeladen, ein öffentlicher Link erstellt und als QR-Code angezeigt |
 
 ## Installation (Windows)
@@ -59,19 +60,37 @@ Manuell: `pip install -r requirements.txt` und `python app.py`, dann <http://127
 
 Alle Einstellungen werden in `config.json` gespeichert. Mit einer **Admin-PIN** lässt sich die Einstellungsseite vor Gästen schützen.
 
-### Design & Layouts
+### Rahmen & Titel
+
+In den Einstellungen unter **«Rahmen & Titel»** den gewünschten Rahmen in der Galerie antippen. Die Vorschau zeigt sofort, wie Einzelbild, Fotostreifen und Collage damit aussehen.
+
+| Rahmen | Motive | Titel-Vorschlag |
+|---|---|---|
+| Ohne Rahmen | reines Foto (Titel optional als Schriftzug im Bild) | – |
+| Party | Konfetti, Luftschlangen, Violett/Pink | Let's Party! |
+| Geburtstag | Wimpelkette, Luftballons, buntes Konfetti | Happy Birthday! |
+| Hochzeit | Creme/Gold, Blumenranken, Herzen, Ringe | Just Married |
+| Strand | Himmel, Sonne, Wellen, Sand, Palmen | Beach Party |
+| Urlaub | Luftpost-Rand, Briefmarke, Stempel, Flugzeug | Grüsse aus dem Urlaub |
+| Silvester | Nachthimmel, Feuerwerk, Gold | Happy New Year! |
+| Weihnachten | Rot, Schneeflocken, Tannenbäume, Sterne | Frohe Weihnachten |
+| Baby & Taufe | Pastell, Wolken, Mond, Sterne | Willkommen, kleiner Schatz |
+| Oktoberfest | weiss-blaue Rauten, Lebkuchenherzen | O'zapft is! |
+| Elegant | Dunkelblau/Schwarz, Goldrahmen, Art-déco-Ecken | – |
+
+- **Titel anzeigen:** ein-/ausschalten. Ohne Titel und Datum werden die Fotos grösser.
+- **Titel bearbeiten:** beliebiger Text (z.B. «Sarah wird 30!»). Leer = Name des Anlasses. Mit «Vorschlag» den passenden Titel des Rahmens übernehmen.
+- **Datum anzeigen:** ein-/ausschalten.
+- **Gäste dürfen den Rahmen selbst wählen:** An der Fotobox erscheint dann neben den Layouts der Knopf *🖼️ Rahmen* mit der Rahmen-Galerie.
+- Alle Rahmen sind als Vektorgrafik gezeichnet und im Druck gestochen scharf.
 
 | Layout | Aufnahmen | Ergebnis (10×15 cm) |
 |---|---|---|
-| **Klassisch** | 1 | Originalfoto ohne Rahmen |
-| **Mit Rahmen** | 1 | Foto mit Rand, darunter Anlassname und Datum |
+| **Einzelbild** | 1 | Foto im Rahmen (ohne Rahmen: Originalfoto) |
 | **Fotostreifen** | 3 | Zwei identische Streifen nebeneinander – in der Mitte durchschneiden, ergibt zwei klassische 5×15-cm-Fotostreifen |
-| **4er-Collage** | 4 | 2×2 Fotos mit Anlassname und Datum |
+| **4er-Collage** | 4 | 2×2 Fotos |
 
-- **Design:** *Party* (Violett/Pink mit Konfetti), *Bunt* (Sonnengelb), *Elegant* (Hochzeit, Creme/Gold) oder *Nacht* (Schwarz/Gold, z.B. Silvester).
-- **Text auf dem Foto:** leer lassen = Name des Anlasses. Das Datum kann ausgeblendet werden.
-- Welche Layouts die Gäste sehen und welches vorausgewählt ist, lässt sich einstellen. Die Vorschau zeigt das Design sofort.
-- Die Einzelaufnahmen werden zusätzlich im Unterordner `photos/einzelbilder/` aufbewahrt.
+Welche Layouts die Gäste sehen und welches vorausgewählt ist, lässt sich ebenfalls einstellen. Die Einzelaufnahmen werden zusätzlich im Unterordner `photos/einzelbilder/` aufbewahrt.
 
 ### Kamera
 - **Webcam:** Kamera auswählen («Kameras suchen»). Die Live-Ansicht kann gespiegelt werden; das gespeicherte Foto ist immer seitenrichtig.
@@ -110,7 +129,7 @@ app.py              Webserver (Flask) und API
 core/camera.py      Ansteuerung Spiegelreflex (digiCamControl / gphoto2)
 core/printer.py     Drucken über Windows (pywin32) bzw. macOS (CUPS), Druckerfreigaben
 core/cloud.py       Cloudspeicher, Upload und Freigabelinks
-core/layouts.py     Foto-Layouts und Designs (Rahmen, Collage, Fotostreifen)
+core/layouts.py     Foto-Layouts und Rahmen-Galerie (Vektorgrafik)
 core/config.py      Einstellungen (config.json)
 templates/, static/ Oberfläche (Fotobox + Einstellungen)
 static/fonts/       Schriften Pacifico und Baloo 2 (SIL Open Font License)

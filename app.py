@@ -60,7 +60,7 @@ def shot_path(name):
 
 
 def design_of(conf):
-    design = dict(conf["design"])
+    design = layouts.normalize(conf["design"])
     design["frame_text"] = design.get("frame_text") or conf["event_name"]
     return design
 
@@ -143,6 +143,7 @@ def photo_file(name):
 @app.get("/api/state")
 def api_state():
     conf = cfg.load()
+    design = design_of(conf)
     return jsonify({
         "event_name": conf["event_name"],
         "countdown": conf["countdown"],
@@ -153,9 +154,11 @@ def api_state():
         "share_enabled": bool(find_storage(conf, conf["cloud"]["share_storage_id"])),
         "layouts": [
             {"id": k, "label": v["label"], "shots": v["shots"]}
-            for k, v in layouts.LAYOUTS.items() if k in conf["design"]["layouts"]
-        ] or [{"id": "classic", "label": "Klassisch", "shots": 1}],
-        "default_layout": conf["design"]["default_layout"],
+            for k, v in layouts.LAYOUTS.items() if k in design["layouts"]
+        ],
+        "default_layout": design["default_layout"],
+        "frame": design["frame"],
+        "guest_frames": design["guest_frames"],
     })
 
 
@@ -199,10 +202,15 @@ def api_compose():
     if len(paths) != layouts.LAYOUTS[layout_id]["shots"]:
         return error("Falsche Anzahl Aufnahmen für dieses Layout")
 
+    design = design_of(conf)
+    frame = data.get("frame")
+    if design["guest_frames"] and (frame in layouts.FRAMES or frame == "none"):
+        design["frame"] = frame
+
     name = new_photo_name()
     target = os.path.join(photo_dir(), name)
     try:
-        image = layouts.compose(layout_id, paths, design_of(conf))
+        image = layouts.compose(layout_id, paths, design)
     except Exception as exc:
         return error(f"Layout konnte nicht erstellt werden: {exc}", 500)
     if image is None:
@@ -215,83 +223,40 @@ def api_compose():
 
 @app.get("/api/layouts/<layout_id>/preview.jpg")
 def api_layout_preview(layout_id):
+    """Vorschau mit Beispielbildern; Rahmen/Titel lassen sich per Parameter überschreiben."""
     if layout_id not in layouts.LAYOUTS:
         abort(404)
     conf = cfg.load()
     design = design_of(conf)
-    if request.args.get("theme") in layouts.THEMES:  # Vorschau in den Einstellungen
-        design["theme"] = request.args["theme"]
-    buf = io.BytesIO()
-    layouts.preview(layout_id, design).save(buf, format="JPEG", quality=85)
-    resp = Response(buf.getvalue(), mimetype="image/jpeg")
-    resp.headers["Cache-Control"] = "no-store"
+    args = request.args
+    if args.get("frame") in layouts.FRAMES or args.get("frame") == "none":
+        design["frame"] = args["frame"]
+    if "title" in args:
+        design["frame_text"] = args["title"][:80] or conf["event_name"]
+    for key in ("show_title", "show_date"):
+        if key in args:
+            design[key] = args[key] == "1"
+    width = min(max(int(args.get("w", 480)), 120), 1200)
+    resp = Response(layouts.preview_jpeg(layout_id, design, width), mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = "max-age=60"
     return resp
 
 
-@app.post("/api/liveview/start")
-def api_liveview_start():
-    try:
-        camera.start_liveview(cfg.load()["camera"])
-    except camera.CameraError as exc:
-        return error(str(exc), 500)
-    return jsonify({"ok": True})
-
-
-@app.get("/api/liveview.mjpg")
-def api_liveview_gphoto():
-    """Live-Ansicht der gphoto2-Kamera als MJPEG-Stream."""
-    def stream():
-        try:
-            for frame in camera.gphoto.preview_frames():
-                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-        except camera.CameraError as exc:
-            print(f"[Kamera] {exc}")
-    return Response(stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
-
-
-@app.get("/api/photos")
-def api_photos():
-    names = sorted((n for n in os.listdir(photo_dir()) if NAME_RE.match(n)), reverse=True)[:60]
-    return jsonify([{"name": n, "url": url_for("photo_file", name=n)} for n in names])
-
-
-@app.post("/api/photos/<name>/print")
-def api_print(name):
-    conf = cfg.load()["printer"]
-    if not conf["enabled"]:
-        return error("Drucken ist deaktiviert")
-    copies = min(max(int(request.json.get("copies", 1) if request.is_json else 1), 1), conf["max_copies"])
-    try:
-        printer.print_image(photo_path(name), conf["name"], copies, conf["fit_mode"])
-    except Exception as exc:
-        return error(str(exc), 500)
-    return jsonify({"ok": True, "copies": copies})
-
-
-@app.post("/api/photos/<name>/share")
-def api_share(name):
-    conf = cfg.load()
-    storage = find_storage(conf, conf["cloud"]["share_storage_id"])
-    if not storage:
-        return error("Kein Cloudspeicher für die Freigabe ausgewählt")
-    try:
-        link = uploader.share(storage, photo_path(name), name)
-    except Exception as exc:
-        return error(f"Freigabe fehlgeschlagen: {exc}", 500)
-    buf = io.BytesIO()
-    qrcode.make(link, border=2).save(buf, format="PNG")
-    qr = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-    return jsonify({"ok": True, "link": link, "qr": qr})
+@app.get("/api/frames")
+def api_frames():
+    return jsonify(layouts.frame_list())
 
 
 # --------------------------------------------------------------------------- Einstellungs-API
 @app.get("/api/settings")
 @admin_required
 def api_get_settings():
+    conf = cfg.load()
+    conf["design"] = layouts.normalize(conf["design"])
     return jsonify({
-        "config": cfg.load(),
+        "config": conf,
         "storage_types": cloud.TYPES,
-        "themes": [[k, v["label"]] for k, v in layouts.THEMES.items()],
+        "frames": layouts.frame_list(),
         "layouts": [[k, v["label"]] for k, v in layouts.LAYOUTS.items()],
     })
 
@@ -300,6 +265,7 @@ def api_get_settings():
 @admin_required
 def api_save_settings():
     data = request.get_json(force=True)
+    data["design"] = layouts.normalize(data.get("design"))
     for s in data.get("cloud", {}).get("storages", []):
         s.setdefault("id", uuid.uuid4().hex[:8])
         if not s["id"]:

@@ -9,6 +9,8 @@ const NEXT_POSE = ["Nächste Pose! 🤪", "Jetzt was Verrücktes! 🙃", "Und no
 
 let state = null;
 let layout = null;         // gewähltes Layout {id, label, shots}
+let frame = null;          // gewählter Rahmen (nur wenn Gäste wählen dürfen)
+let frames = [];
 let current = null;        // aktuell angezeigtes Foto {name, url}
 let busy = false;
 let copies = 1;
@@ -37,6 +39,7 @@ function show(screen) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === screen));
   clearTimeout(reviewTimer);
   if (screen === "liveScreen") $("shareModal").hidden = true;
+  if (screen !== "liveScreen") $("frameModal").hidden = true;
   if (screen !== "liveScreen" && state.review_timeout > 0) {
     reviewTimer = setTimeout(() => show("liveScreen"), state.review_timeout * 1000);
   }
@@ -163,6 +166,12 @@ async function captureShot() {
 }
 
 // ------------------------------------------------------------------ Layout-Auswahl
+function previewUrl(layoutId, width) {
+  const q = new URLSearchParams({ w: width });
+  if (frame) q.set("frame", frame);
+  return `/api/layouts/${layoutId}/preview.jpg?${q}`;
+}
+
 function renderLayoutPicker() {
   const box = $("layoutPicker");
   box.innerHTML = "";
@@ -171,19 +180,54 @@ function renderLayoutPicker() {
     const card = document.createElement("button");
     card.className = "layout-card";
     card.innerHTML = `<img alt=""><span></span><small></small>`;
-    card.querySelector("img").src = `/api/layouts/${l.id}/preview.jpg?v=${Date.now()}`;
+    card.querySelector("img").src = previewUrl(l.id, 240);
     card.querySelector("span").textContent = l.label;
     card.querySelector("small").textContent = l.shots === 1 ? "1 Foto" : `${l.shots} Fotos`;
     card.onclick = () => selectLayout(l);
     card.dataset.id = l.id;
     box.appendChild(card);
   }
-  selectLayout(state.layouts.find((l) => l.id === state.default_layout) || state.layouts[0]);
+  selectLayout(layout && state.layouts.find((l) => l.id === layout.id)
+    || state.layouts.find((l) => l.id === state.default_layout) || state.layouts[0]);
 }
 
 function selectLayout(l) {
   layout = l;
   document.querySelectorAll(".layout-card").forEach((c) => c.classList.toggle("selected", c.dataset.id === l.id));
+}
+
+// ------------------------------------------------------------------ Rahmen-Auswahl (Gäste)
+async function setupFramePicker() {
+  if (!state.guest_frames) return;
+  frames = await api("/api/frames");
+  frame = state.frame;
+  $("frameBtn").hidden = false;
+  const grid = $("frameGrid");
+  grid.innerHTML = "";
+  for (const f of frames) {
+    const card = document.createElement("button");
+    card.className = "frame-card";
+    card.dataset.id = f.id;
+    card.innerHTML = `<img alt="" loading="lazy"><span></span>`;
+    card.querySelector("img").src = `/api/layouts/single/preview.jpg?frame=${f.id}&w=320`;
+    card.querySelector("span").textContent = f.label;
+    card.onclick = () => {
+      selectFrame(f.id);
+      $("frameModal").hidden = true;
+    };
+    grid.appendChild(card);
+  }
+  selectFrame(frame);
+  $("frameBtn").onclick = () => ($("frameModal").hidden = false);
+  $("frameClose").onclick = () => ($("frameModal").hidden = true);
+}
+
+function selectFrame(id) {
+  frame = id;
+  const f = frames.find((x) => x.id === id);
+  $("frameName").textContent = f ? f.label : "";
+  document.querySelectorAll(".frame-card").forEach((c) => c.classList.toggle("selected", c.dataset.id === id));
+  renderLayoutPicker();
 }
 
 // ------------------------------------------------------------------ Ablauf
@@ -248,7 +292,7 @@ async function takePhoto() {
     const photo = await api("/api/compose", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ layout: layout.id, shots }),
+      body: JSON.stringify({ layout: layout.id, shots, frame }),
     });
     await preload(photo.url);
     $("busyOverlay").hidden = true;
@@ -343,6 +387,7 @@ async function init() {
   $("printGroup").hidden = !state.print_enabled;
   $("shareBtn").hidden = !state.share_enabled;
   renderLayoutPicker();
+  await setupFramePicker().catch(() => {});
 
   if (state.camera.mode === "dslr") startDslrPreview();
   else if (state.camera.mode === "gphoto2") startGphotoPreview();
@@ -361,7 +406,8 @@ async function init() {
   document.addEventListener("keydown", (e) => {
     if (e.code === "Space" || e.code === "Enter") {
       e.preventDefault();
-      if ($("liveScreen").classList.contains("active")) takePhoto();
+      if (!$("frameModal").hidden) $("frameModal").hidden = true;
+      else if ($("liveScreen").classList.contains("active")) takePhoto();
       else if (!$("shareModal").hidden) $("shareModal").hidden = true;
       else show("liveScreen");
     }

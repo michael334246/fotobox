@@ -33,6 +33,7 @@
 
     <div class="controls">
       <div id="layoutPicker" class="layout-picker"></div>
+      <button id="frameBtn" class="frame-btn" hidden><span>🖼️</span><small>Rahmen</small><b id="frameName"></b></button>
       <button id="shutterBtn" class="shutter"><span class="shutter-icon">📸</span><span>Los geht's!</span></button>
     </div>
   </section>
@@ -69,6 +70,15 @@
       <img id="shareQr" alt="QR-Code">
       <p class="link" id="shareLink"></p>
       <button class="pill blue" id="shareClose">Fertig</button>
+    </div>
+  </div>
+
+  <!-- Rahmen-Galerie für Gäste -->
+  <div id="frameModal" class="modal" hidden>
+    <div class="frame-box">
+      <h2>Wähle deinen Rahmen ✨</h2>
+      <div id="frameGrid" class="frame-grid"></div>
+      <button class="pill blue" id="frameClose">Fertig</button>
     </div>
   </div>
 

@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 let config = null;
 let types = {};
-let themes = [];       // [[id, Bezeichnung], …]
+let frames = [];       // [{id, label, title}, …]
 let layoutNames = [];
 
 async function api(url, body) {
@@ -57,9 +57,19 @@ function setOptions(select, options, selected) {
   select.value = selected ?? "";
 }
 
-// ------------------------------------------------------------------ Design & Layouts
+// ------------------------------------------------------------------ Rahmen & Titel
+let previewTimer = null;
+
+function previewParams() {
+  const q = new URLSearchParams({
+    title: $("titleInput").value,
+    show_title: $("showTitle").checked ? "1" : "0",
+    show_date: $("showDate").checked ? "1" : "0",
+  });
+  return q;
+}
+
 function renderDesign() {
-  setOptions($("themeSelect"), themes, config.design.theme);
   setOptions($("defaultLayout"), layoutNames, config.design.default_layout);
   const box = $("layoutChecks");
   box.innerHTML = "";
@@ -71,16 +81,65 @@ function renderDesign() {
     l.querySelector("input").checked = config.design.layouts.includes(id);
     box.appendChild(l);
   }
-  renderLayoutPreviews();
+
+  const gallery = $("frameGallery");
+  gallery.innerHTML = "";
+  for (const f of frames) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "frame-card";
+    card.dataset.id = f.id;
+    card.innerHTML = `<img alt="" loading="lazy"><span></span>`;
+    card.querySelector("span").textContent = f.label;
+    card.onclick = () => selectFrame(f.id);
+    gallery.appendChild(card);
+  }
+  $("titleInput").placeholder = `leer = ${config.event_name}`;
+  $("titleSuggest").onclick = () => {
+    const f = frames.find((x) => x.id === $("frameInput").value);
+    if (f && f.title) {
+      $("titleInput").value = f.title;
+      $("showTitle").checked = true;
+      updateDesignUi();
+    }
+  };
+  for (const id of ["titleInput", "showTitle", "showDate"]) $(id).addEventListener("input", updateDesignUi);
+  selectFrame(config.design.frame);
 }
 
-function renderLayoutPreviews() {
+function selectFrame(id) {
+  $("frameInput").value = id;
+  document.querySelectorAll(".frame-card").forEach((c) => c.classList.toggle("selected", c.dataset.id === id));
+  updateDesignUi();
+}
+
+function updateDesignUi() {
+  const f = frames.find((x) => x.id === $("frameInput").value);
+  const btn = $("titleSuggest");
+  btn.hidden = !(f && f.title);
+  if (f && f.title) btn.textContent = `Vorschlag: «${f.title}»`;
+  $("titleRow").style.opacity = $("showTitle").checked ? "1" : "0.45";
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreviews, 350);
+}
+
+function refreshPreviews() {
+  const q = previewParams();
+  document.querySelectorAll(".frame-card").forEach((card) => {
+    const p = new URLSearchParams(q);
+    p.set("frame", card.dataset.id);
+    p.set("w", "320");
+    card.querySelector("img").src = `/api/layouts/single/preview.jpg?${p}`;
+  });
   const box = $("layoutPreviews");
   box.innerHTML = "";
   for (const [id, label] of layoutNames) {
+    const p = new URLSearchParams(q);
+    p.set("frame", $("frameInput").value);
+    p.set("w", "520");
     const fig = document.createElement("figure");
     fig.innerHTML = `<img alt=""><figcaption></figcaption>`;
-    fig.querySelector("img").src = `/api/layouts/${id}/preview.jpg?theme=${$("themeSelect").value}&t=${Date.now()}`;
+    fig.querySelector("img").src = `/api/layouts/${id}/preview.jpg?${p}`;
     fig.querySelector("figcaption").textContent = label;
     box.appendChild(fig);
   }
@@ -213,7 +272,6 @@ async function save() {
     const r = await api("/api/settings", config);
     config = r.config;
     $("defaultLayout").value = config.design.default_layout;
-    renderLayoutPreviews();
     status($("saveStatus"), "✔ Gespeichert");
   } catch (e) {
     status($("saveStatus"), `✖ ${e.message}`, false);
@@ -224,7 +282,7 @@ async function init() {
   const r = await api("/api/settings");
   config = r.config;
   types = r.storage_types;
-  themes = r.themes;
+  frames = r.frames;
   layoutNames = r.layouts;
 
   setOptions($("newStorageType"), Object.entries(types).map(([k, t]) => [k, t.label]));
@@ -233,7 +291,6 @@ async function init() {
   renderDesign();
   renderStorages();
   updateCameraMode();
-  $("themeSelect").onchange = renderLayoutPreviews;
 
   $("cameraMode").onchange = updateCameraMode;
   $("webcamRefresh").onclick = loadWebcams;

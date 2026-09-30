@@ -21,17 +21,25 @@
   </fieldset>
 
   <fieldset>
-    <legend>Design &amp; Layouts</legend>
-    <div class="row">
-      <label><span>Design der Fotos</span><select data-key="design.theme" id="themeSelect"></select></label>
-      <label><span>Text auf dem Foto (leer = Name des Anlasses)</span><input type="text" data-key="design.frame_text"></label>
+    <legend>Rahmen &amp; Titel</legend>
+    <p class="note">Rahmen in der Galerie antippen – die Vorschau unten zeigt sofort das Ergebnis.</p>
+    <div class="frame-gallery" id="frameGallery"></div>
+    <input type="hidden" data-key="design.frame" id="frameInput">
+
+    <label class="check"><input type="checkbox" data-key="design.show_title" id="showTitle"> Titel anzeigen</label>
+    <div class="row" id="titleRow">
+      <label><span>Titel auf dem Rahmen</span><input type="text" data-key="design.frame_text" id="titleInput" maxlength="80"></label>
+      <button class="btn" id="titleSuggest" type="button"></button>
     </div>
-    <label class="check"><input type="checkbox" data-key="design.show_date"> Datum aufs Foto drucken</label>
+    <label class="check"><input type="checkbox" data-key="design.show_date" id="showDate"> Datum anzeigen</label>
+    <label class="check"><input type="checkbox" data-key="design.guest_frames"> Gäste dürfen den Rahmen an der Fotobox selbst wählen</label>
+
     <label><span>Layouts, die Gäste auswählen können</span></label>
     <div class="checks" id="layoutChecks"></div>
     <label><span>Vorausgewähltes Layout</span><select data-key="design.default_layout" id="defaultLayout"></select></label>
+
+    <h3 class="preview-head">Vorschau</h3>
     <div class="layout-previews" id="layoutPreviews"></div>
-    <p class="note">Die Vorschau zeigt Beispielbilder. Text und Datum erscheinen nach dem Speichern.</p>
   </fieldset>
 
   <fieldset>

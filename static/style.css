@@ -73,6 +73,37 @@ body.settings { max-width: 900px; margin: 0 auto; padding: 1rem 16px 4rem; heigh
 .settings .layout-previews figure { margin: 0; text-align: center; }
 .settings .layout-previews img { width: 100%; border-radius: 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
 .settings .layout-previews figcaption { color: var(--muted); font-size: 0.85rem; margin-top: 0.3rem; }
+.settings .frame-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 0.7rem; margin: 0.6rem 0 1rem; }
+.settings .frame-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  background: var(--bg);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.settings .frame-card img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 6px; background: #2a3038; }
+.settings .frame-card span { font-size: 0.9rem; }
+.settings .frame-card.selected { border-color: var(--accent-2); }
+.settings .frame-card.selected::after {
+  content: "✓";
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--accent-2);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+.settings .preview-head { margin: 1.2rem 0 0; font-size: 1rem; }
 .settings .checks { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
 .status-ok { color: var(--ok); }
 .status-err { color: #ff7b72; }
